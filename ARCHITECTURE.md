@@ -26,8 +26,10 @@
    - Handles mouse input for building placement
    - Shows preview tile at mouse position
    - Left-click to place, right-click to demolish
+   - Click-and-drag support for painting multiple tiles in one stroke
    - Checks affordability before placement
    - Provides 50% refund on demolition
+   - Uses `_Input` method to reliably capture mouse events before other systems
 
 5. **EconomyManager** (`scripts/EconomyManager.cs`)
    - Tracks current money (starts at $10,000)
@@ -86,7 +88,8 @@ Main (Node2D)
 1. **Input Processing**
    - Camera movement (CameraController)
    - Building selection (HUD buttons → GameManager)
-   - Building placement (BuildingPlacer)
+   - Building placement (BuildingPlacer using `_Input` for reliable capture)
+   - Click-and-drag painting for placing/demolishing multiple tiles
    - Pause toggle (GameManager)
 
 2. **Update Ticks**
@@ -126,6 +129,7 @@ The game uses Godot signals for loose coupling:
 ## Key Features
 
 - **Grid-based building**: 40x30 tile grid, 32x32 pixel tiles
+- **Click-and-drag placement**: Paint multiple tiles at once like drawing zones in SimCity
 - **Simple economy**: Income vs expenses, building costs
 - **Population mechanics**: Growth based on housing and happiness
 - **Visual feedback**: Preview tiles, colored buildings, grid overlay

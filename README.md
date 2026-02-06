@@ -29,7 +29,9 @@ Suri is a 2D top-down city builder where you can:
 - **WASD** or **Arrow Keys**: Pan the camera around the map
 - **Mouse Scroll Wheel**: Zoom in/out
 - **Left Click**: Place selected building (must select from build menu first)
+- **Left Click + Drag**: Paint multiple tiles with selected building (like drawing zones in SimCity)
 - **Right Click**: Demolish building (get 50% refund)
+- **Right Click + Drag**: Demolish multiple buildings in one stroke
 - **P Key**: Pause/Resume the game
 
 ## Game Mechanics
