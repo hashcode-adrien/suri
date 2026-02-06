@@ -31,7 +31,9 @@ This document confirms that all requirements from the problem statement have bee
   - **Park** (Light Green) — $50, increases happiness
 - ✅ Build toolbar/menu in HUD with buttons for each type
 - ✅ Click-to-place mechanic (left click)
+- ✅ Click-and-drag mechanic for painting multiple tiles (like drawing zones in SimCity)
 - ✅ Right-click-to-demolish mechanic (50% refund)
+- ✅ Right-click-and-drag for demolishing multiple buildings
 
 ### 4. ✅ Economy System
 - ✅ Budget tracking in `EconomyManager.cs`:
@@ -126,8 +128,9 @@ The game is complete and ready to run when opened in Godot 4 .NET edition:
 - Pan camera around a 40x30 tile city grid
 - Zoom in/out for better view
 - Select building types from the menu
-- Place buildings by clicking
+- Place buildings by clicking or click-and-drag to paint zones
 - Demolish buildings with right-click (get refund)
+- Right-click-and-drag to demolish multiple buildings
 - Watch population grow in residential zones
 - Manage budget by balancing income and expenses
 - Monitor happiness to keep population growing

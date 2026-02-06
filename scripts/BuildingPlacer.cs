@@ -13,6 +13,11 @@ namespace Suri
         private Camera2D _camera;
         private ColorRect _previewTile;
 
+        // State tracking for click-and-drag functionality
+        private bool _isPlacing = false;
+        private bool _isDemolishing = false;
+        private Vector2I _lastPlacedGridPos = new Vector2I(-1, -1);
+
         public override void _Ready()
         {
             _gridManager = GetNode<GridManager>("/root/Main/GridManager");
@@ -33,25 +38,75 @@ namespace Suri
         public override void _Process(double delta)
         {
             UpdatePreview();
-        }
 
-        public override void _UnhandledInput(InputEvent @event)
-        {
-            if (@event is InputEventMouseButton mouseButton && mouseButton.Pressed)
+            // Handle continuous placement while mouse button is held down
+            if (_isPlacing || _isDemolishing)
             {
                 var mousePos = GetGlobalMousePosition();
                 var gridPos = _gridManager.WorldToGrid(mousePos);
 
-                if (!_gridManager.IsValidPosition(gridPos)) return;
+                if (_gridManager.IsValidPosition(gridPos) && gridPos != _lastPlacedGridPos)
+                {
+                    if (_isPlacing)
+                    {
+                        PlaceBuilding(gridPos);
+                    }
+                    else if (_isDemolishing)
+                    {
+                        DemolishBuilding(gridPos);
+                    }
+                    _lastPlacedGridPos = gridPos;
+                }
+            }
+        }
 
-                if (mouseButton.ButtonIndex == MouseButton.Left)
+        public override void _Input(InputEvent @event)
+        {
+            if (@event is InputEventMouseButton mouseButton)
+            {
+                // Only handle left and right mouse buttons, not scroll wheel
+                if (mouseButton.ButtonIndex == MouseButton.Left || mouseButton.ButtonIndex == MouseButton.Right)
                 {
-                    PlaceBuilding(gridPos);
+                    var mousePos = GetGlobalMousePosition();
+                    var gridPos = _gridManager.WorldToGrid(mousePos);
+
+                    if (!_gridManager.IsValidPosition(gridPos)) return;
+
+                    if (mouseButton.ButtonIndex == MouseButton.Left)
+                    {
+                        if (mouseButton.Pressed)
+                        {
+                            // Start placing mode
+                            _isPlacing = true;
+                            PlaceBuilding(gridPos);
+                            _lastPlacedGridPos = gridPos;
+                        }
+                        else
+                        {
+                            // Stop placing mode
+                            _isPlacing = false;
+                        }
+                    }
+                    else if (mouseButton.ButtonIndex == MouseButton.Right)
+                    {
+                        if (mouseButton.Pressed)
+                        {
+                            // Start demolishing mode
+                            _isDemolishing = true;
+                            DemolishBuilding(gridPos);
+                            _lastPlacedGridPos = gridPos;
+                        }
+                        else
+                        {
+                            // Stop demolishing mode
+                            _isDemolishing = false;
+                        }
+                    }
+
+                    // Consume the event so camera controller doesn't interfere
+                    GetViewport().SetInputAsHandled();
                 }
-                else if (mouseButton.ButtonIndex == MouseButton.Right)
-                {
-                    DemolishBuilding(gridPos);
-                }
+                // Don't consume scroll wheel events - let them pass through for zoom
             }
         }
 
