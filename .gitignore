@@ -428,3 +428,4 @@ mono_crash.*.json
 # Godot-specific metadata and import files
 *.import
 *.md5
+.DS_Store

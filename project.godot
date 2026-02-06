@@ -26,6 +26,10 @@ window/stretch/mode="canvas_items"
 
 project/assembly_name="Suri"
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/meshy-godot-plugin/meshy-godot-plugin/plugin.cfg")
+
 [input]
 
 ui_accept={
