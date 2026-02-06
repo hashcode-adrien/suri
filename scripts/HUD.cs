@@ -13,16 +13,21 @@ namespace Suri
         private Label _incomeLabel;
         private Label _pauseLabel;
         private VBoxContainer _buildMenu;
+        private Button _viewToggleButton;
 
         private GameManager _gameManager;
         private EconomyManager _economyManager;
         private PopulationManager _populationManager;
+        private ViewManager _viewManager;
 
         public override void _Ready()
         {
             _gameManager = GetNode<GameManager>("/root/Main/GameManager");
             _economyManager = GetNode<EconomyManager>("/root/Main/EconomyManager");
             _populationManager = GetNode<PopulationManager>("/root/Main/PopulationManager");
+            
+            // ViewManager might not be ready immediately, will connect later
+            _viewManager = null;
 
             CreateHUD();
             ConnectSignals();
@@ -134,6 +139,15 @@ namespace Suri
             };
             pauseButton.Pressed += () => _gameManager.TogglePause();
             _buildMenu.AddChild(pauseButton);
+
+            // Add view toggle button
+            _viewToggleButton = new Button
+            {
+                Text = "View: 2D",
+                CustomMinimumSize = new Vector2(160, 50)
+            };
+            _viewToggleButton.Pressed += OnViewTogglePressed;
+            _buildMenu.AddChild(_viewToggleButton);
         }
 
         private void OnBuildButtonPressed(Button button)
@@ -141,6 +155,21 @@ namespace Suri
             var typeInt = button.GetMeta("BuildingType").AsInt32();
             var type = (BuildingType)typeInt;
             _gameManager.SelectBuildingType(type);
+        }
+
+        private void OnViewTogglePressed()
+        {
+            // Lazy load ViewManager
+            if (_viewManager == null && HasNode("/root/Main/ViewManager"))
+            {
+                _viewManager = GetNode<ViewManager>("/root/Main/ViewManager");
+                _viewManager.ViewChanged += OnViewChanged;
+            }
+
+            if (_viewManager != null)
+            {
+                _viewManager.ToggleView();
+            }
         }
 
         private void ConnectSignals()
@@ -172,6 +201,20 @@ namespace Suri
         private void OnGamePaused(bool paused)
         {
             _pauseLabel.Text = paused ? "[PAUSED]" : "";
+        }
+
+        private void OnViewChanged(bool is3D)
+        {
+            _viewToggleButton.Text = is3D ? "View: 3D" : "View: 2D";
+        }
+
+        public override void _ExitTree()
+        {
+            // Cleanup signal connections
+            if (_viewManager != null)
+            {
+                _viewManager.ViewChanged -= OnViewChanged;
+            }
         }
 
         private void UpdateAllLabels()

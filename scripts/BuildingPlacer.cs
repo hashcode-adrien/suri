@@ -13,7 +13,9 @@ namespace Suri
         private GameManager _gameManager;
         private EconomyManager _economyManager;
         private Camera2D _camera;
+        private Camera3D _camera3D;
         private ColorRect _previewTile;
+        private ViewManager _viewManager;
 
         private static readonly Vector2I InvalidGridPosition = new Vector2I(-1, -1);
 
@@ -30,6 +32,9 @@ namespace Suri
             _gameManager = GetNode<GameManager>("/root/Main/GameManager");
             _economyManager = GetNode<EconomyManager>("/root/Main/EconomyManager");
             _camera = GetNode<Camera2D>("/root/Main/Camera2D");
+            
+            // ViewManager and Camera3D might not be ready immediately, get them when scene is ready
+            CallDeferred(nameof(InitializeDeferredReferences));
 
             // Create preview tile
             _previewTile = new ColorRect
@@ -40,6 +45,19 @@ namespace Suri
                 MouseFilter = Control.MouseFilterEnum.Ignore
             };
             AddChild(_previewTile);
+        }
+
+        private void InitializeDeferredReferences()
+        {
+            if (HasNode("/root/Main/ViewManager"))
+            {
+                _viewManager = GetNode<ViewManager>("/root/Main/ViewManager");
+            }
+            
+            if (HasNode("/root/Main/SubViewportContainer/SubViewport/Camera3D"))
+            {
+                _camera3D = GetNode<Camera3D>("/root/Main/SubViewportContainer/SubViewport/Camera3D");
+            }
         }
 
         public override void _Process(double delta)
@@ -57,8 +75,7 @@ namespace Suri
             // If so, don't process placement/demolition
             bool mouseOverGui = IsMouseOverInteractiveGui();
 
-            var mousePos = GetGlobalMousePosition();
-            var gridPos = _gridManager.WorldToGrid(mousePos);
+            var gridPos = GetGridPositionFromMouse();
             bool validPos = _gridManager.IsValidPosition(gridPos);
 
             // --- LEFT CLICK: Place buildings ---
@@ -125,8 +142,7 @@ namespace Suri
                 return;
             }
 
-            var mousePos = GetGlobalMousePosition();
-            var gridPos = _gridManager.WorldToGrid(mousePos);
+            var gridPos = GetGridPositionFromMouse();
 
             if (!_gridManager.IsValidPosition(gridPos))
             {
@@ -200,6 +216,70 @@ namespace Suri
                 int refund = data.Cost / 2;
                 _economyManager.AddMoney(refund);
                 GD.Print($"Demolished {data.Name} at {gridPos}, refund: ${refund}");
+            }
+        }
+
+        /// <summary>
+        /// Gets the grid position from the mouse cursor, handling both 2D and 3D views.
+        /// </summary>
+        private Vector2I GetGridPositionFromMouse()
+        {
+            if (_viewManager != null && _viewManager.Is3DView)
+            {
+                // 3D mode: raycast from camera to ground plane
+                return GetGridPositionFrom3D();
+            }
+            else
+            {
+                // 2D mode: use normal 2D world position
+                var mousePos = GetGlobalMousePosition();
+                return _gridManager.WorldToGrid(mousePos);
+            }
+        }
+
+        /// <summary>
+        /// Raycast from 3D camera to ground plane (Y=0) to get grid position.
+        /// </summary>
+        private Vector2I GetGridPositionFrom3D()
+        {
+            if (_camera3D == null) return InvalidGridPosition;
+
+            var viewport = GetViewport();
+            var mousePos = viewport.GetMousePosition();
+
+            // Get ray from camera
+            var from = _camera3D.ProjectRayOrigin(mousePos);
+            var dir = _camera3D.ProjectRayNormal(mousePos);
+
+            // Intersect with ground plane (Y = 0)
+            if (Mathf.Abs(dir.Y) < 0.0001f) return InvalidGridPosition; // Ray parallel to ground
+
+            float t = -from.Y / dir.Y;
+            if (t < 0) return InvalidGridPosition; // Ray pointing away from ground
+
+            var intersection = from + dir * t;
+            
+            // Convert 3D world position to grid coordinates
+            // 3D grid mapping: grid cell (x, y) → 3D position (x * cellSize, 0, y * cellSize)
+            const float cellSize = 1.0f;
+            int gridX = Mathf.FloorToInt(intersection.X / cellSize);
+            int gridZ = Mathf.FloorToInt(intersection.Z / cellSize);
+            
+            return new Vector2I(gridX, gridZ);
+        }
+
+        /// <summary>
+        /// Sets the visibility of the preview tile (used by ViewManager).
+        /// </summary>
+        public void SetPreviewVisible(bool visible)
+        {
+            if (_gameManager.SelectedBuildingType == BuildingType.None)
+            {
+                _previewTile.Visible = false;
+            }
+            else
+            {
+                _previewTile.Visible = visible;
             }
         }
     }
