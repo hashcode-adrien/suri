@@ -416,3 +416,15 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Godot 4 specific ignores
+.godot/
+*.import
+*.translation
+.mono/
+data_*/
+mono_crash.*.json
+
+# Godot-specific metadata and import files
+*.import
+*.md5

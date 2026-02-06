@@ -1,0 +1,45 @@
+[gd_scene load_steps=8 format=3 uid="uid://bq3wqp8rwkjfd"]
+
+[ext_resource type="Script" path="res://scripts/GameManager.cs" id="1_e3wqp"]
+[ext_resource type="Script" path="res://scripts/GridManager.cs" id="2_g8hxy"]
+[ext_resource type="Script" path="res://scripts/CameraController.cs" id="3_s7w9m"]
+[ext_resource type="Script" path="res://scripts/BuildingPlacer.cs" id="4_p2k5n"]
+[ext_resource type="Script" path="res://scripts/EconomyManager.cs" id="5_r6t8j"]
+[ext_resource type="Script" path="res://scripts/PopulationManager.cs" id="6_v3q9k"]
+[ext_resource type="Script" path="res://scripts/HUD.cs" id="7_m4p2l"]
+
+[node name="Main" type="Node2D"]
+
+[node name="GameManager" type="Node" parent="."]
+script = ExtResource("1_e3wqp")
+
+[node name="EconomyManager" type="Node" parent="."]
+script = ExtResource("5_r6t8j")
+StartingMoney = 10000
+IncomeTickInterval = 5.0
+
+[node name="PopulationManager" type="Node" parent="."]
+script = ExtResource("6_v3q9k")
+GrowthTickInterval = 3.0
+GrowthRate = 0.1
+
+[node name="GridManager" type="Node2D" parent="."]
+script = ExtResource("2_g8hxy")
+GridWidth = 40
+GridHeight = 30
+TileSize = 32
+ShowGrid = true
+
+[node name="BuildingPlacer" type="Node2D" parent="."]
+script = ExtResource("4_p2k5n")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(640, 360)
+script = ExtResource("3_s7w9m")
+PanSpeed = 400.0
+ZoomSpeed = 0.1
+MinZoom = 0.5
+MaxZoom = 2.0
+
+[node name="HUD" type="CanvasLayer" parent="."]
+script = ExtResource("7_m4p2l")
