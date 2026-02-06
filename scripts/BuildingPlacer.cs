@@ -36,7 +36,8 @@ namespace Suri
             {
                 Size = new Vector2(_gridManager.TileSize - 2, _gridManager.TileSize - 2),
                 Color = new Color(1, 1, 1, 0.5f),
-                Visible = false
+                Visible = false,
+                MouseFilter = Control.MouseFilterEnum.Ignore
             };
             AddChild(_previewTile);
         }
@@ -54,7 +55,7 @@ namespace Suri
 
             // Check if mouse is over a GUI element (HUD buttons etc.)
             // If so, don't process placement/demolition
-            bool mouseOverGui = GetViewport().GuiGetHoveredControl() != null;
+            bool mouseOverGui = IsMouseOverInteractiveGui();
 
             var mousePos = GetGlobalMousePosition();
             var gridPos = _gridManager.WorldToGrid(mousePos);
@@ -150,6 +151,22 @@ namespace Suri
             }
 
             _previewTile.Visible = true;
+        }
+
+        private bool IsMouseOverInteractiveGui()
+        {
+            var hoveredControl = GetViewport().GuiGetHoveredControl();
+            if (hoveredControl == null) return false;
+            if (hoveredControl == _previewTile) return false;
+            // If hovering over any control that's part of the HUD CanvasLayer, it's GUI
+            Node parent = hoveredControl;
+            while (parent != null)
+            {
+                if (parent is CanvasLayer) return true;
+                if (parent is Button) return true;
+                parent = parent.GetParent();
+            }
+            return false;
         }
 
         private void PlaceBuilding(Vector2I gridPos)
