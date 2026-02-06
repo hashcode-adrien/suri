@@ -22,10 +22,15 @@ namespace Suri
             Size = 20f; // Default orthographic size
             _targetSize = Size;
             
-            // Position camera at an angle (isometric-like view)
-            // Looking down at 45 degrees from the side
-            Position = new Vector3(20, 20, 20);
-            LookAt(new Vector3(20, 0, 15), Vector3.Up);
+            // CRITICAL: 45° isometric angle (classic city builder camera)
+            // X rotation: -45 degrees (pitch down)
+            // Y rotation: -45 degrees (rotated around Y for isometric view)
+            // This gives the classic SimCity / Cities Skylines / Anno perspective
+            Rotation = new Vector3(Mathf.DegToRad(-45f), Mathf.DegToRad(-45f), 0);
+            
+            // Position camera above the center of the grid (40x30 grid, cell size 1.0)
+            // Adjusted to frame the city nicely with the 45° angle
+            Position = new Vector3(20, 25, 20);
             
             _targetPosition = Position;
         }

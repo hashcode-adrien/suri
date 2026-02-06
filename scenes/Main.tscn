@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://bq3wqp8rwkjfd"]
+[gd_scene load_steps=13 format=3 uid="uid://bq3wqp8rwkjfd"]
 
 [ext_resource type="Script" path="res://scripts/GameManager.cs" id="1_e3wqp"]
 [ext_resource type="Script" path="res://scripts/GridManager.cs" id="2_g8hxy"]
@@ -10,6 +10,13 @@
 [ext_resource type="Script" path="res://scripts/ViewManager.cs" id="8_vm"]
 [ext_resource type="Script" path="res://scripts/GridManager3D.cs" id="9_gm3d"]
 [ext_resource type="Script" path="res://scripts/CameraController3D.cs" id="10_cc3d"]
+
+[sub_resource type="Environment" id="Environment_1"]
+background_mode = 1
+background_color = Color(0.6, 0.7, 0.8, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.6, 0.7, 0.8, 1)
+ambient_light_energy = 0.4
 
 [node name="Main" type="Node2D"]
 
@@ -60,6 +67,8 @@ stretch = true
 [node name="SubViewport" type="SubViewport" parent="SubViewportContainer"]
 size = Vector2i(1280, 720)
 render_target_update_mode = 4
+msaa_3d = 2
+shadow_atlas_size = 4096
 
 [node name="GridManager3D" type="Node3D" parent="SubViewportContainer/SubViewport"]
 script = ExtResource("9_gm3d")
@@ -68,9 +77,17 @@ script = ExtResource("9_gm3d")
 script = ExtResource("10_cc3d")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="SubViewportContainer/SubViewport"]
-transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 20, 0)
-light_energy = 0.8
+transform = Transform3D(0.866025, 0.433013, -0.25, 0, 0.5, 0.866025, 0.5, -0.75, 0.433013, 0, 20, 0)
+light_color = Color(1, 0.95, 0.9, 1)
+light_energy = 1.2
 shadow_enabled = true
+shadow_bias = 0.05
+shadow_normal_bias = 2.0
+directional_shadow_mode = 2
+directional_shadow_max_distance = 100.0
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="SubViewportContainer/SubViewport"]
+environment = SubResource("Environment_1")
 
 [node name="HUD" type="CanvasLayer" parent="."]
 script = ExtResource("7_m4p2l")
