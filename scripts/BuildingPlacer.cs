@@ -4,6 +4,8 @@ namespace Suri
 {
     /// <summary>
     /// Handles player input for placing and removing buildings.
+    /// Uses polling-based input in _Process to avoid event ordering issues
+    /// with other nodes using _UnhandledInput.
     /// </summary>
     public partial class BuildingPlacer : Node2D
     {
@@ -13,10 +15,11 @@ namespace Suri
         private Camera2D _camera;
         private ColorRect _previewTile;
 
-        // Constant for invalid grid position marker
         private static readonly Vector2I InvalidGridPosition = new Vector2I(-1, -1);
 
         // State tracking for click-and-drag functionality
+        private bool _wasLeftPressed = false;
+        private bool _wasRightPressed = false;
         private bool _isPlacing = false;
         private bool _isDemolishing = false;
         private Vector2I _lastPlacedGridPos = InvalidGridPosition;
@@ -41,85 +44,76 @@ namespace Suri
         public override void _Process(double delta)
         {
             UpdatePreview();
+            HandleMouseInput();
+        }
 
-            // Safety reset: if drag state is active but mouse button is no longer pressed
-            if (_isPlacing && !Input.IsMouseButtonPressed(MouseButton.Left))
+        private void HandleMouseInput()
+        {
+            bool leftPressed = Input.IsMouseButtonPressed(MouseButton.Left);
+            bool rightPressed = Input.IsMouseButtonPressed(MouseButton.Right);
+
+            // Check if mouse is over a GUI element (HUD buttons etc.)
+            // If so, don't process placement/demolition
+            bool mouseOverGui = GetViewport().GuiGetHoveredControl() != null;
+
+            var mousePos = GetGlobalMousePosition();
+            var gridPos = _gridManager.WorldToGrid(mousePos);
+            bool validPos = _gridManager.IsValidPosition(gridPos);
+
+            // --- LEFT CLICK: Place buildings ---
+            // Detect press (transition from not pressed to pressed)
+            if (leftPressed && !_wasLeftPressed && !mouseOverGui)
+            {
+                if (validPos)
+                {
+                    _isPlacing = true;
+                    PlaceBuilding(gridPos);
+                    _lastPlacedGridPos = gridPos;
+                }
+            }
+            // While held down, keep placing on new tiles
+            else if (leftPressed && _isPlacing)
+            {
+                if (validPos && gridPos != _lastPlacedGridPos)
+                {
+                    PlaceBuilding(gridPos);
+                    _lastPlacedGridPos = gridPos;
+                }
+            }
+            // Released
+            if (!leftPressed && _wasLeftPressed)
             {
                 _isPlacing = false;
                 _lastPlacedGridPos = InvalidGridPosition;
             }
-            if (_isDemolishing && !Input.IsMouseButtonPressed(MouseButton.Right))
+
+            // --- RIGHT CLICK: Demolish buildings ---
+            if (rightPressed && !_wasRightPressed && !mouseOverGui)
+            {
+                if (validPos)
+                {
+                    _isDemolishing = true;
+                    DemolishBuilding(gridPos);
+                    _lastPlacedGridPos = gridPos;
+                }
+            }
+            else if (rightPressed && _isDemolishing)
+            {
+                if (validPos && gridPos != _lastPlacedGridPos)
+                {
+                    DemolishBuilding(gridPos);
+                    _lastPlacedGridPos = gridPos;
+                }
+            }
+            if (!rightPressed && _wasRightPressed)
             {
                 _isDemolishing = false;
                 _lastPlacedGridPos = InvalidGridPosition;
             }
 
-            // Handle continuous placement while mouse button is held down
-            if (_isPlacing || _isDemolishing)
-            {
-                var mousePos = GetGlobalMousePosition();
-                var gridPos = _gridManager.WorldToGrid(mousePos);
-
-                if (_gridManager.IsValidPosition(gridPos) && gridPos != _lastPlacedGridPos)
-                {
-                    if (_isPlacing)
-                    {
-                        PlaceBuilding(gridPos);
-                    }
-                    else if (_isDemolishing)
-                    {
-                        DemolishBuilding(gridPos);
-                    }
-                    _lastPlacedGridPos = gridPos;
-                }
-            }
-        }
-
-        public override void _UnhandledInput(InputEvent @event)
-        {
-            if (@event is InputEventMouseButton mouseButton)
-            {
-                // Only handle left and right mouse buttons, not scroll wheel
-                if (mouseButton.ButtonIndex == MouseButton.Left || mouseButton.ButtonIndex == MouseButton.Right)
-                {
-                    var mousePos = GetGlobalMousePosition();
-                    var gridPos = _gridManager.WorldToGrid(mousePos);
-
-                    if (!_gridManager.IsValidPosition(gridPos)) return;
-
-                    if (mouseButton.ButtonIndex == MouseButton.Left)
-                    {
-                        if (mouseButton.Pressed)
-                        {
-                            // Start placing mode
-                            _isPlacing = true;
-                            PlaceBuilding(gridPos);
-                            _lastPlacedGridPos = gridPos;
-                        }
-                        else
-                        {
-                            // Stop placing mode
-                            _isPlacing = false;
-                        }
-                    }
-                    else if (mouseButton.ButtonIndex == MouseButton.Right)
-                    {
-                        if (mouseButton.Pressed)
-                        {
-                            // Start demolishing mode
-                            _isDemolishing = true;
-                            DemolishBuilding(gridPos);
-                            _lastPlacedGridPos = gridPos;
-                        }
-                        else
-                        {
-                            // Stop demolishing mode
-                            _isDemolishing = false;
-                        }
-                    }
-                }
-                // Don't consume scroll wheel events - let them pass through for zoom
-            }
+            // Update previous frame state
+            _wasLeftPressed = leftPressed;
+            _wasRightPressed = rightPressed;
         }
 
         private void UpdatePreview()
