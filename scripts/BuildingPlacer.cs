@@ -39,6 +39,18 @@ namespace Suri
         {
             UpdatePreview();
 
+            // Safety reset: if drag state is active but mouse button is no longer pressed
+            if (_isPlacing && !Input.IsMouseButtonPressed(MouseButton.Left))
+            {
+                _isPlacing = false;
+                _lastPlacedGridPos = new Vector2I(-1, -1);
+            }
+            if (_isDemolishing && !Input.IsMouseButtonPressed(MouseButton.Right))
+            {
+                _isDemolishing = false;
+                _lastPlacedGridPos = new Vector2I(-1, -1);
+            }
+
             // Handle continuous placement while mouse button is held down
             if (_isPlacing || _isDemolishing)
             {
@@ -60,7 +72,7 @@ namespace Suri
             }
         }
 
-        public override void _Input(InputEvent @event)
+        public override void _UnhandledInput(InputEvent @event)
         {
             if (@event is InputEventMouseButton mouseButton)
             {
@@ -102,9 +114,6 @@ namespace Suri
                             _isDemolishing = false;
                         }
                     }
-
-                    // Consume the event so camera controller doesn't interfere
-                    GetViewport().SetInputAsHandled();
                 }
                 // Don't consume scroll wheel events - let them pass through for zoom
             }
