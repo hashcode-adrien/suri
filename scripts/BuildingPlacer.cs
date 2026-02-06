@@ -78,7 +78,6 @@ namespace Suri
                         {
                             // Start placing mode
                             _isPlacing = true;
-                            _lastPlacedGridPos = new Vector2I(-1, -1);
                             PlaceBuilding(gridPos);
                             _lastPlacedGridPos = gridPos;
                         }
@@ -86,7 +85,6 @@ namespace Suri
                         {
                             // Stop placing mode
                             _isPlacing = false;
-                            _lastPlacedGridPos = new Vector2I(-1, -1);
                         }
                     }
                     else if (mouseButton.ButtonIndex == MouseButton.Right)
@@ -95,7 +93,6 @@ namespace Suri
                         {
                             // Start demolishing mode
                             _isDemolishing = true;
-                            _lastPlacedGridPos = new Vector2I(-1, -1);
                             DemolishBuilding(gridPos);
                             _lastPlacedGridPos = gridPos;
                         }
@@ -103,7 +100,6 @@ namespace Suri
                         {
                             // Stop demolishing mode
                             _isDemolishing = false;
-                            _lastPlacedGridPos = new Vector2I(-1, -1);
                         }
                     }
 
