@@ -143,7 +143,8 @@ namespace Suri
             {
                 Mesh = mesh,
                 MaterialOverride = material,
-                Position = new Vector3(0, 0.75f, 0) // Centered vertically
+                Position = new Vector3(0, 0.75f, 0), // Centered vertically
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.On
             };
             
             container.AddChild(instance);
@@ -161,7 +162,8 @@ namespace Suri
             {
                 Mesh = mesh,
                 MaterialOverride = material,
-                Position = new Vector3(0, 1.0f, 0)
+                Position = new Vector3(0, 1.0f, 0),
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.On
             };
             
             container.AddChild(instance);
@@ -180,7 +182,8 @@ namespace Suri
             {
                 Mesh = baseMesh,
                 MaterialOverride = baseMaterial,
-                Position = new Vector3(0, 0.5f, 0)
+                Position = new Vector3(0, 0.5f, 0),
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.On
             };
             container.AddChild(baseInstance);
             
@@ -196,7 +199,8 @@ namespace Suri
             {
                 Mesh = chimneyMesh,
                 MaterialOverride = chimneyMaterial,
-                Position = new Vector3(0.25f, 1.3f, 0.25f)
+                Position = new Vector3(0.25f, 1.3f, 0.25f),
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.On
             };
             container.AddChild(chimneyInstance);
             
@@ -214,7 +218,8 @@ namespace Suri
             {
                 Mesh = mesh,
                 MaterialOverride = material,
-                Position = new Vector3(0, 0.05f, 0)
+                Position = new Vector3(0, 0.05f, 0),
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.On
             };
             
             container.AddChild(instance);
@@ -233,7 +238,8 @@ namespace Suri
             {
                 Mesh = groundMesh,
                 MaterialOverride = groundMaterial,
-                Position = new Vector3(0, 0.1f, 0)
+                Position = new Vector3(0, 0.1f, 0),
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.On
             };
             container.AddChild(groundInstance);
             
@@ -244,7 +250,8 @@ namespace Suri
             {
                 Mesh = treeMesh,
                 MaterialOverride = treeMaterial,
-                Position = new Vector3(0, 0.4f, 0)
+                Position = new Vector3(0, 0.4f, 0),
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.On
             };
             container.AddChild(treeInstance);
             
