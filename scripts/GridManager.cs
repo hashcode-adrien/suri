@@ -8,6 +8,9 @@ namespace Suri
     /// </summary>
     public partial class GridManager : Node2D
     {
+        [Signal]
+        public delegate void GridChangedEventHandler(int x, int y);
+
         [Export] public int GridWidth = 40;
         [Export] public int GridHeight = 30;
         [Export] public int TileSize = 32;
@@ -78,6 +81,7 @@ namespace Suri
 
             _grid[gridPos.X, gridPos.Y] = buildingType;
             UpdateTile(gridPos);
+            EmitSignal(SignalName.GridChanged, gridPos.X, gridPos.Y);
             return true;
         }
 
@@ -88,6 +92,7 @@ namespace Suri
 
             _grid[gridPos.X, gridPos.Y] = BuildingType.None;
             UpdateTile(gridPos);
+            EmitSignal(SignalName.GridChanged, gridPos.X, gridPos.Y);
             return true;
         }
 
@@ -159,6 +164,23 @@ namespace Suri
         {
             ShowGrid = visible;
             _gridLines.Visible = visible;
+        }
+
+        /// <summary>
+        /// Gets the entire grid data for reading. Used by 3D view for initial sync.
+        /// </summary>
+        public BuildingType[,] GetGrid()
+        {
+            return _grid;
+        }
+
+        /// <summary>
+        /// Sets the visibility of the 2D tile rendering.
+        /// Used when switching between 2D and 3D views.
+        /// </summary>
+        public void SetTilesVisible(bool visible)
+        {
+            _tileContainer.Visible = visible;
         }
     }
 }
