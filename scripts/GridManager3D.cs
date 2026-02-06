@@ -192,14 +192,14 @@ namespace Suri
                 }
 
                 // Position at center of 3x3 block
+                // Center offset is 1.5 because: topLeft + 1.5 cells = middle of a 3-cell span
                 cottage.Position = new Vector3(
                     (topLeft.X + 1.5f) * CellSize,
                     0f,
                     (topLeft.Y + 1.5f) * CellSize
                 );
 
-                // Scale to fit 3x3 area
-                // Start with 2.0 as suggested, may need adjustment
+                // Scale to fit 3x3 area (2.0 = covers approximately 2 units per 3 cells)
                 cottage.Scale = new Vector3(2f, 2f, 2f);
 
                 _buildingsContainer.AddChild(cottage);
