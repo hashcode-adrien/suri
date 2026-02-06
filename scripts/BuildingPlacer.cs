@@ -13,10 +13,13 @@ namespace Suri
         private Camera2D _camera;
         private ColorRect _previewTile;
 
+        // Constant for invalid grid position marker
+        private static readonly Vector2I InvalidGridPosition = new Vector2I(-1, -1);
+
         // State tracking for click-and-drag functionality
         private bool _isPlacing = false;
         private bool _isDemolishing = false;
-        private Vector2I _lastPlacedGridPos = new Vector2I(-1, -1);
+        private Vector2I _lastPlacedGridPos = InvalidGridPosition;
 
         public override void _Ready()
         {
@@ -43,12 +46,12 @@ namespace Suri
             if (_isPlacing && !Input.IsMouseButtonPressed(MouseButton.Left))
             {
                 _isPlacing = false;
-                _lastPlacedGridPos = new Vector2I(-1, -1);
+                _lastPlacedGridPos = InvalidGridPosition;
             }
             if (_isDemolishing && !Input.IsMouseButtonPressed(MouseButton.Right))
             {
                 _isDemolishing = false;
-                _lastPlacedGridPos = new Vector2I(-1, -1);
+                _lastPlacedGridPos = InvalidGridPosition;
             }
 
             // Handle continuous placement while mouse button is held down
