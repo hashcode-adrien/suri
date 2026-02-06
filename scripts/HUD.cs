@@ -208,6 +208,15 @@ namespace Suri
             _viewToggleButton.Text = is3D ? "View: 3D" : "View: 2D";
         }
 
+        public override void _ExitTree()
+        {
+            // Cleanup signal connections
+            if (_viewManager != null)
+            {
+                _viewManager.ViewChanged -= OnViewChanged;
+            }
+        }
+
         private void UpdateAllLabels()
         {
             OnMoneyChanged(_economyManager.CurrentMoney);

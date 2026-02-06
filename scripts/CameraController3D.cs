@@ -93,19 +93,5 @@ namespace Suri
         {
             _targetSize = Mathf.Clamp(_targetSize + ZoomSpeed, MinSize, MaxSize);
         }
-
-        /// <summary>
-        /// Projects a ray from the camera through the given screen position.
-        /// Returns the ray origin and direction.
-        /// </summary>
-        public void GetRayFromScreen(Vector2 screenPos, out Vector3 rayOrigin, out Vector3 rayDirection)
-        {
-            var viewport = GetViewport();
-            var from = ProjectRayOrigin(screenPos);
-            var dir = ProjectRayNormal(screenPos);
-            
-            rayOrigin = from;
-            rayDirection = dir;
-        }
     }
 }

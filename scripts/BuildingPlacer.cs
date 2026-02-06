@@ -13,6 +13,7 @@ namespace Suri
         private GameManager _gameManager;
         private EconomyManager _economyManager;
         private Camera2D _camera;
+        private Camera3D _camera3D;
         private ColorRect _previewTile;
         private ViewManager _viewManager;
 
@@ -32,8 +33,8 @@ namespace Suri
             _economyManager = GetNode<EconomyManager>("/root/Main/EconomyManager");
             _camera = GetNode<Camera2D>("/root/Main/Camera2D");
             
-            // ViewManager might not be ready immediately, so we'll get it on first use
-            _viewManager = null;
+            // ViewManager and Camera3D might not be ready immediately, get them when scene is ready
+            CallDeferred(nameof(InitializeDeferredReferences));
 
             // Create preview tile
             _previewTile = new ColorRect
@@ -46,14 +47,21 @@ namespace Suri
             AddChild(_previewTile);
         }
 
-        public override void _Process(double delta)
+        private void InitializeDeferredReferences()
         {
-            // Lazy load ViewManager
-            if (_viewManager == null && HasNode("/root/Main/ViewManager"))
+            if (HasNode("/root/Main/ViewManager"))
             {
                 _viewManager = GetNode<ViewManager>("/root/Main/ViewManager");
             }
+            
+            if (HasNode("/root/Main/SubViewportContainer/SubViewport/Camera3D"))
+            {
+                _camera3D = GetNode<Camera3D>("/root/Main/SubViewportContainer/SubViewport/Camera3D");
+            }
+        }
 
+        public override void _Process(double delta)
+        {
             UpdatePreview();
             HandleMouseInput();
         }
@@ -234,22 +242,14 @@ namespace Suri
         /// </summary>
         private Vector2I GetGridPositionFrom3D()
         {
-            var camera3D = GetNodeOrNull<Camera3D>("/root/Main/SubViewportContainer/SubViewport/Camera3D");
-            if (camera3D == null) return InvalidGridPosition;
+            if (_camera3D == null) return InvalidGridPosition;
 
             var viewport = GetViewport();
             var mousePos = viewport.GetMousePosition();
-            
-            // Adjust mouse position for the SubViewport
-            var subViewportContainer = GetNodeOrNull<SubViewportContainer>("/root/Main/SubViewportContainer");
-            if (subViewportContainer == null) return InvalidGridPosition;
-            
-            var subViewport = GetNodeOrNull<SubViewport>("/root/Main/SubViewportContainer/SubViewport");
-            if (subViewport == null) return InvalidGridPosition;
 
             // Get ray from camera
-            var from = camera3D.ProjectRayOrigin(mousePos);
-            var dir = camera3D.ProjectRayNormal(mousePos);
+            var from = _camera3D.ProjectRayOrigin(mousePos);
+            var dir = _camera3D.ProjectRayNormal(mousePos);
 
             // Intersect with ground plane (Y = 0)
             if (Mathf.Abs(dir.Y) < 0.0001f) return InvalidGridPosition; // Ray parallel to ground
