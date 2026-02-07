@@ -26,8 +26,20 @@ namespace Suri
         {
             _camera2D = GetNode<Camera2D>("/root/Main/Camera2D");
             _camera3D = GetNode<Camera3D>("/root/Main/SubViewportContainer/SubViewport/Camera3D");
+            
+            // Verify camera types
             _cameraController2D = _camera2D as CameraController;
             _cameraController3D = _camera3D as CameraController3D;
+            
+            if (_cameraController2D == null)
+            {
+                GD.PrintErr("Camera2D is not of type CameraController - camera synchronization will not work");
+            }
+            if (_cameraController3D == null)
+            {
+                GD.PrintErr("Camera3D is not of type CameraController3D - camera synchronization will not work");
+            }
+            
             _gridManager = GetNode<GridManager>("/root/Main/GridManager");
             _gridManager3D = GetNode<GridManager3D>("/root/Main/SubViewportContainer/SubViewport/GridManager3D");
             _buildingPlacer = GetNode<BuildingPlacer>("/root/Main/BuildingPlacer");

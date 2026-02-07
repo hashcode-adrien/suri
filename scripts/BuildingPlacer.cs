@@ -76,8 +76,8 @@ namespace Suri
 			const float frequency = 440.0f; // A4 note
 			int sampleCount = (int)(sampleRate * duration);
 			
-			// Generate audio samples
-			byte[] data = new byte[sampleCount * 4]; // 2 bytes per sample * 2 channels (stereo)
+			// Generate audio samples (4 bytes per sample frame: 2 bytes per sample × 2 channels)
+			byte[] data = new byte[sampleCount * 4];
 			for (int i = 0; i < sampleCount; i++)
 			{
 				float t = i / (float)sampleRate;
@@ -179,7 +179,6 @@ namespace Suri
 					ExecutePendingPlacements();
 				}
 				_isDraggingPlace = false;
-				_dragCancelled = false;
 			}
 
 			// --- RIGHT CLICK: Demolish buildings (drag and release mode) ---
@@ -212,7 +211,6 @@ namespace Suri
 					ExecutePendingDemolitions();
 				}
 				_isDraggingDemolish = false;
-				_dragCancelled = false;
 			}
 		}
 

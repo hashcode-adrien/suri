@@ -308,6 +308,10 @@ namespace Suri
         {
             if (_coordinatesLabel == null) return;
 
+            // Update position dynamically to handle window resize
+            var viewportHeight = GetViewport().GetVisibleRect().Size.Y;
+            _coordinatesLabel.Position = new Vector2(10, viewportHeight - 30);
+
             int gridX = 0, gridY = 0;
 
             if (_viewManager != null && _viewManager.Is3DView && _cameraController3D != null)
