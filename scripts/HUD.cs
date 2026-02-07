@@ -346,7 +346,7 @@ namespace Suri
                 // 2D mode: calculate top-left visible tile
                 var viewport = GetViewport();
                 float viewportWidth = viewport.GetVisibleRect().Size.X;
-                float viewportHeight = viewport.GetVisibleRect().Size.Y;
+                float viewport2DHeight = viewport.GetVisibleRect().Size.Y;
                 
                 // Get camera zoom and target position
                 var camera2D = _cameraController2D as Camera2D;
@@ -357,7 +357,7 @@ namespace Suri
                     
                     // Calculate visible half-extents (accounting for zoom)
                     float halfViewW = viewportWidth / (2f * zoom.X);
-                    float halfViewH = viewportHeight / (2f * zoom.Y);
+                    float halfViewH = viewport2DHeight / (2f * zoom.Y);
                     
                     // Top-left world position (offset by HUD height of 60 pixels)
                     float hudOffset = 60f / zoom.Y;
