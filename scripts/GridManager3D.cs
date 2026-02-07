@@ -18,6 +18,7 @@ namespace Suri
 		private Node3D _gridLines3D;
 		private MeshInstance3D _groundPlane;
 		private PackedScene _cottageScene;
+		private List<MeshInstance3D> _previewMeshes = new List<MeshInstance3D>();
 
 		private const float CellSize = 1.0f;
 
@@ -621,6 +622,70 @@ namespace Suri
 			container.AddChild(treeInstance);
 
 			return container;
+		}
+
+		/// <summary>
+		/// Shows preview tiles at the specified positions with the given building type's color.
+		/// </summary>
+		public void ShowPreviewTiles(List<Vector2I> positions, BuildingType buildingType)
+		{
+			ClearPreviewTiles();
+			var data = BuildingRegistry.GetBuildingData(buildingType);
+			foreach (var pos in positions)
+			{
+				var height = GetBuildingHeight(buildingType);
+				var mesh = new BoxMesh
+				{
+					Size = new Vector3(CellSize * 0.95f, height, CellSize * 0.95f)
+				};
+				var material = new StandardMaterial3D
+				{
+					AlbedoColor = new Color(data.Color, 0.65f),
+					Transparency = BaseMaterial3D.TransparencyEnum.Alpha
+				};
+				var meshInstance = new MeshInstance3D
+				{
+					Mesh = mesh,
+					MaterialOverride = material,
+					Position = new Vector3(pos.X * CellSize + CellSize / 2, height / 2, pos.Y * CellSize + CellSize / 2)
+				};
+				_buildingsContainer.AddChild(meshInstance);
+				_previewMeshes.Add(meshInstance);
+			}
+		}
+
+		/// <summary>
+		/// Clears all preview tiles.
+		/// </summary>
+		public void ClearPreviewTiles()
+		{
+			foreach (var mesh in _previewMeshes)
+			{
+				mesh.QueueFree();
+			}
+			_previewMeshes.Clear();
+		}
+
+		/// <summary>
+		/// Gets the building height for a given building type.
+		/// </summary>
+		private float GetBuildingHeight(BuildingType buildingType)
+		{
+			switch (buildingType)
+			{
+				case BuildingType.Residential:
+					return 1.5f;
+				case BuildingType.Commercial:
+					return 2.0f;
+				case BuildingType.Industrial:
+					return 1.0f;
+				case BuildingType.Road:
+					return 0.1f;
+				case BuildingType.Park:
+					return 0.2f;
+				default:
+					return 1.0f;
+			}
 		}
 	}
 }

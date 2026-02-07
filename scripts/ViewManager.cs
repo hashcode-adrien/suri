@@ -64,9 +64,10 @@ namespace Suri
             // Sync camera position: 3D -> 2D
             if (_cameraController3D != null && _cameraController2D != null)
             {
-                var target3D = _cameraController3D.GetTargetPosition();
-                // Convert 3D world position (X, Z) to 2D pixel position (X * TileSize, Z * TileSize)
-                var target2D = new Vector2(target3D.X * _gridManager.TileSize, target3D.Z * _gridManager.TileSize);
+                // Get the ground target that 3D camera is looking at
+                var groundTarget = _cameraController3D.GetGroundTargetPosition();
+                // Convert 3D ground position (X, Z) to 2D pixel position (X * TileSize, Z * TileSize)
+                var target2D = new Vector2(groundTarget.X * _gridManager.TileSize, groundTarget.Z * _gridManager.TileSize);
                 _cameraController2D.SetTargetPosition(target2D);
             }
             
@@ -94,11 +95,11 @@ namespace Suri
             if (_cameraController2D != null && _cameraController3D != null)
             {
                 var target2D = _cameraController2D.GetTargetPosition();
-                // Convert 2D pixel position to 3D world position (X / TileSize, currentY, Y / TileSize)
+                // Convert 2D pixel position to 3D ground position
                 var gridCenter = target2D / _gridManager.TileSize;
-                var currentTarget3D = _cameraController3D.GetTargetPosition();
-                var target3D = new Vector3(gridCenter.X, currentTarget3D.Y, gridCenter.Y);
-                _cameraController3D.SetTargetPosition(target3D);
+                var groundTarget = new Vector3(gridCenter.X, 0, gridCenter.Y);
+                // Set the 3D camera to look at this ground position
+                _cameraController3D.SetGroundTargetPosition(groundTarget);
             }
             
             // Disable 2D rendering (but keep grid data)

@@ -84,42 +84,39 @@ namespace Suri
 
         private void ApplyCameraClamping()
         {
-            // Calculate visible area accounting for orthographic projection and 45° tilt
-            var viewport = GetViewport();
-            float aspectRatio = (float)viewport.GetVisibleRect().Size.X / viewport.GetVisibleRect().Size.Y;
+            // Calculate where the camera is looking on the ground
+            var groundTarget = GetGroundTarget(_targetPosition);
             
-            // Visible half-width in X (orthographic size * aspect ratio / 2)
-            float visibleHalfWidth = Size * aspectRatio / 2f;
+            // Calculate visible half-extents on the ground plane
+            var viewportSize = GetViewport().GetVisibleRect().Size;
+            float aspectRatio = viewportSize.X / viewportSize.Y;
+            float halfWidth = Size * aspectRatio / 2.0f;  // ground half-width (camera right is projected on XZ)
+            float halfDepth = Size / 2.0f / Mathf.Cos(Mathf.DegToRad(45f)); // stretched by tilt
             
-            // Visible half-height in Z (accounting for 45° tilt)
-            // The camera is tilted 45° down, so it sees "further" in Z
-            float tiltAngle = Mathf.DegToRad(45f);
-            float visibleHalfZ = Size / 2f / Mathf.Cos(tiltAngle);
+            // Map boundaries with 10-cell margin
+            const float margin = 10f;
+            float mapWidth = _gridManager.GridWidth * CellSize;
+            float mapHeight = _gridManager.GridHeight * CellSize;
             
-            // Clamp camera position to map bounds with 10-cell margin (10 units)
-            const float cellMargin = 10f; // 10 cells * 1.0 cell size
-            float minX = -cellMargin + visibleHalfWidth;
-            float maxX = _gridManager.GridWidth * CellSize + cellMargin - visibleHalfWidth;
-            float minZ = -cellMargin + visibleHalfZ;
-            float maxZ = _gridManager.GridHeight * CellSize + cellMargin - visibleHalfZ;
+            float minGroundX = -margin + halfWidth;
+            float maxGroundX = mapWidth + margin - halfWidth;
+            float minGroundZ = -margin + halfDepth;
+            float maxGroundZ = mapHeight + margin - halfDepth;
             
-            // If visible area is larger than clamped range, center the camera
-            if (minX > maxX)
-            {
-                float center = (_gridManager.GridWidth * CellSize) / 2f;
-                minX = maxX = center;
-            }
-            if (minZ > maxZ)
-            {
-                float center = (_gridManager.GridHeight * CellSize) / 2f;
-                minZ = maxZ = center;
-            }
+            // Handle case where visible area is larger than allowed range
+            if (minGroundX > maxGroundX) { minGroundX = maxGroundX = mapWidth / 2.0f; }
+            if (minGroundZ > maxGroundZ) { minGroundZ = maxGroundZ = mapHeight / 2.0f; }
             
-            _targetPosition = new Vector3(
-                Mathf.Clamp(_targetPosition.X, minX, maxX),
-                _targetPosition.Y, // Don't clamp Y (height)
-                Mathf.Clamp(_targetPosition.Z, minZ, maxZ)
+            // Clamp the ground target
+            var clampedGround = new Vector3(
+                Mathf.Clamp(groundTarget.X, minGroundX, maxGroundX),
+                0,
+                Mathf.Clamp(groundTarget.Z, minGroundZ, maxGroundZ)
             );
+            
+            // Move camera position by the same delta
+            var delta = clampedGround - groundTarget;
+            _targetPosition += delta;
         }
 
         public override void _UnhandledInput(InputEvent @event)
@@ -161,6 +158,35 @@ namespace Suri
         public void SetTargetPosition(Vector3 position)
         {
             _targetPosition = position;
+        }
+
+        /// <summary>
+        /// Calculates the ground target point (Y=0) that the camera is looking at.
+        /// </summary>
+        private Vector3 GetGroundTarget(Vector3 camPos)
+        {
+            var forward = -Transform.Basis.Z;
+            if (Mathf.Abs(forward.Y) < 0.001f) return new Vector3(camPos.X, 0, camPos.Z);
+            float t = -camPos.Y / forward.Y;
+            return camPos + forward * t;
+        }
+
+        /// <summary>
+        /// Gets the ground target position that the camera is currently looking at.
+        /// </summary>
+        public Vector3 GetGroundTargetPosition()
+        {
+            return GetGroundTarget(Position);
+        }
+
+        /// <summary>
+        /// Sets the camera position so that it looks at the specified ground position.
+        /// </summary>
+        public void SetGroundTargetPosition(Vector3 groundPos)
+        {
+            var currentGround = GetGroundTarget(_targetPosition);
+            var delta = groundPos - currentGround;
+            _targetPosition += delta;
         }
     }
 }

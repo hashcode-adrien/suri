@@ -12,6 +12,7 @@ namespace Suri
 	public partial class BuildingPlacer : Node2D
 	{
 		private GridManager _gridManager;
+		private GridManager3D _gridManager3D;
 		private GameManager _gameManager;
 		private EconomyManager _economyManager;
 		private Camera2D _camera;
@@ -38,7 +39,7 @@ namespace Suri
 			_economyManager = GetNode<EconomyManager>("/root/Main/EconomyManager");
 			_camera = GetNode<Camera2D>("/root/Main/Camera2D");
 			
-			// ViewManager and Camera3D might not be ready immediately, get them when scene is ready
+			// ViewManager, Camera3D, and GridManager3D might not be ready immediately, get them when scene is ready
 			CallDeferred(nameof(InitializeDeferredReferences));
 
 			// Create preview tile for cursor
@@ -65,6 +66,11 @@ namespace Suri
 			if (HasNode("/root/Main/SubViewportContainer/SubViewport/Camera3D"))
 			{
 				_camera3D = GetNode<Camera3D>("/root/Main/SubViewportContainer/SubViewport/Camera3D");
+			}
+
+			if (HasNode("/root/Main/SubViewportContainer/SubViewport/GridManager3D"))
+			{
+				_gridManager3D = GetNode<GridManager3D>("/root/Main/SubViewportContainer/SubViewport/GridManager3D");
 			}
 		}
 
@@ -156,7 +162,6 @@ namespace Suri
 				{
 					// Start dragging
 					_isDraggingPlace = true;
-					_dragCancelled = false;
 					_pendingPlacements.Clear();
 					_pendingPlacements.Add(gridPos);
 					UpdatePendingPreview();
@@ -174,7 +179,12 @@ namespace Suri
 			else if (_isDraggingPlace)
 			{
 				// Released - place all pending tiles (only if not cancelled)
-				if (!_dragCancelled)
+				if (_dragCancelled)
+				{
+					// Clear the flag on release
+					_dragCancelled = false;
+				}
+				else
 				{
 					ExecutePendingPlacements();
 				}
@@ -188,7 +198,6 @@ namespace Suri
 				{
 					// Start dragging
 					_isDraggingDemolish = true;
-					_dragCancelled = false;
 					_pendingDemolitions.Clear();
 					_pendingDemolitions.Add(gridPos);
 					UpdatePendingPreview();
@@ -206,7 +215,12 @@ namespace Suri
 			else if (_isDraggingDemolish)
 			{
 				// Released - demolish all pending tiles (only if not cancelled)
-				if (!_dragCancelled)
+				if (_dragCancelled)
+				{
+					// Clear the flag on release
+					_dragCancelled = false;
+				}
+				else
 				{
 					ExecutePendingDemolitions();
 				}
@@ -258,45 +272,64 @@ namespace Suri
 
 		private void UpdatePendingPreview()
 		{
-			// Clear old preview tiles
+			// Clear old preview tiles (both 2D and 3D)
 			foreach (var tile in _previewTiles.Values)
 			{
 				tile.QueueFree();
 			}
 			_previewTiles.Clear();
+			
+			if (_gridManager3D != null)
+			{
+				_gridManager3D.ClearPreviewTiles();
+			}
+
+			// Check if in 3D view
+			bool is3DView = _viewManager != null && _viewManager.Is3DView;
 
 			if (_isDraggingPlace)
 			{
 				var data = BuildingRegistry.GetBuildingData(_gameManager.SelectedBuildingType);
 				
-				foreach (var gridPos in _pendingPlacements)
+				if (is3DView && _gridManager3D != null)
 				{
-					var canAfford = _economyManager.CanAfford(data.Cost * _pendingPlacements.Count);
-					var isOccupied = _gridManager.GetBuildingAt(gridPos) != BuildingType.None;
-					
-					var preview = new ColorRect
+					// 3D preview
+					_gridManager3D.ShowPreviewTiles(_pendingPlacements, _gameManager.SelectedBuildingType);
+				}
+				else
+				{
+					// 2D preview
+					foreach (var gridPos in _pendingPlacements)
 					{
-						Position = _gridManager.GridToWorld(gridPos),
-						Size = new Vector2(_gridManager.TileSize - 2, _gridManager.TileSize - 2),
-						MouseFilter = Control.MouseFilterEnum.Ignore
-					};
+						var canAfford = _economyManager.CanAfford(data.Cost * _pendingPlacements.Count);
+						var isOccupied = _gridManager.GetBuildingAt(gridPos) != BuildingType.None;
+						
+						var preview = new ColorRect
+						{
+							Position = _gridManager.GridToWorld(gridPos),
+							Size = new Vector2(_gridManager.TileSize - 2, _gridManager.TileSize - 2),
+							MouseFilter = Control.MouseFilterEnum.Ignore
+						};
 
-					// Show red for invalid, building color for valid at 65% opacity
-					if (canAfford && !isOccupied)
-					{
-						preview.Color = new Color(data.Color, 0.65f); // 65% opacity
-					}
-					else
-					{
-						preview.Color = new Color(Colors.Red, 0.65f); // 65% opacity
-					}
+						// Show red for invalid, building color for valid at 65% opacity
+						if (canAfford && !isOccupied)
+						{
+							preview.Color = new Color(data.Color, 0.65f); // 65% opacity
+						}
+						else
+						{
+							preview.Color = new Color(Colors.Red, 0.65f); // 65% opacity
+						}
 
-					AddChild(preview);
-					_previewTiles[gridPos] = preview;
+						AddChild(preview);
+						_previewTiles[gridPos] = preview;
+					}
 				}
 			}
 			else if (_isDraggingDemolish)
 			{
+				// For now, only show 2D demolition preview
+				// TODO: Add 3D demolition preview if needed
 				foreach (var gridPos in _pendingDemolitions)
 				{
 					var buildingType = _gridManager.GetBuildingAt(gridPos);
@@ -426,6 +459,12 @@ namespace Suri
 				tile.QueueFree();
 			}
 			_previewTiles.Clear();
+
+			// Also clear 3D preview tiles
+			if (_gridManager3D != null)
+			{
+				_gridManager3D.ClearPreviewTiles();
+			}
 		}
 
 		private bool IsMouseOverInteractiveGui()
