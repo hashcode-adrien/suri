@@ -84,12 +84,36 @@ namespace Suri
 
         private void ApplyCameraClamping()
         {
+            // Calculate visible area accounting for orthographic projection and 45° tilt
+            var viewport = GetViewport();
+            float aspectRatio = (float)viewport.GetVisibleRect().Size.X / viewport.GetVisibleRect().Size.Y;
+            
+            // Visible half-width in X (orthographic size * aspect ratio / 2)
+            float visibleHalfWidth = Size * aspectRatio / 2f;
+            
+            // Visible half-height in Z (accounting for 45° tilt)
+            // The camera is tilted 45° down, so it sees "further" in Z
+            float tiltAngle = Mathf.DegToRad(45f);
+            float visibleHalfZ = Size / 2f / Mathf.Cos(tiltAngle);
+            
             // Clamp camera position to map bounds with 10-cell margin (10 units)
             const float cellMargin = 10f; // 10 cells * 1.0 cell size
-            float minX = -cellMargin;
-            float maxX = _gridManager.GridWidth * CellSize + cellMargin;
-            float minZ = -cellMargin;
-            float maxZ = _gridManager.GridHeight * CellSize + cellMargin;
+            float minX = -cellMargin + visibleHalfWidth;
+            float maxX = _gridManager.GridWidth * CellSize + cellMargin - visibleHalfWidth;
+            float minZ = -cellMargin + visibleHalfZ;
+            float maxZ = _gridManager.GridHeight * CellSize + cellMargin - visibleHalfZ;
+            
+            // If visible area is larger than clamped range, center the camera
+            if (minX > maxX)
+            {
+                float center = (_gridManager.GridWidth * CellSize) / 2f;
+                minX = maxX = center;
+            }
+            if (minZ > maxZ)
+            {
+                float center = (_gridManager.GridHeight * CellSize) / 2f;
+                minZ = maxZ = center;
+            }
             
             _targetPosition = new Vector3(
                 Mathf.Clamp(_targetPosition.X, minX, maxX),
@@ -121,6 +145,22 @@ namespace Suri
         private void ZoomOut()
         {
             _targetSize = Mathf.Clamp(_targetSize + ZoomSpeed, MinSize, MaxSize);
+        }
+
+        /// <summary>
+        /// Gets the camera's target position in world coordinates (the point it's looking at).
+        /// </summary>
+        public Vector3 GetTargetPosition()
+        {
+            return _targetPosition;
+        }
+
+        /// <summary>
+        /// Sets the camera's target position in world coordinates.
+        /// </summary>
+        public void SetTargetPosition(Vector3 position)
+        {
+            _targetPosition = position;
         }
     }
 }

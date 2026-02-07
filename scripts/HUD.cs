@@ -12,6 +12,7 @@ namespace Suri
         private Label _happinessLabel;
         private Label _incomeLabel;
         private Label _pauseLabel;
+        private Label _coordinatesLabel;
         private VBoxContainer _buildMenu;
         private Button _viewToggleButton;
         private Button _musicToggleButton;
@@ -21,15 +22,21 @@ namespace Suri
         private PopulationManager _populationManager;
         private ViewManager _viewManager;
         private MusicManager _musicManager;
+        private CameraController _cameraController2D;
+        private CameraController3D _cameraController3D;
+        private GridManager _gridManager;
 
         public override void _Ready()
         {
             _gameManager = GetNode<GameManager>("/root/Main/GameManager");
             _economyManager = GetNode<EconomyManager>("/root/Main/EconomyManager");
             _populationManager = GetNode<PopulationManager>("/root/Main/PopulationManager");
+            _gridManager = GetNode<GridManager>("/root/Main/GridManager");
             
-            // ViewManager might not be ready immediately, will connect later
+            // ViewManager and cameras might not be ready immediately, will connect later
             _viewManager = null;
+            _cameraController2D = null;
+            _cameraController3D = null;
 
             CreateHUD();
             ConnectSignals();
@@ -93,6 +100,26 @@ namespace Suri
                 VerticalAlignment = VerticalAlignment.Center
             };
             return label;
+        }
+
+        private void CreateCoordinatesLabel()
+        {
+            // Create label settings with white text and black outline
+            var labelSettings = new LabelSettings
+            {
+                FontSize = 14,
+                OutlineColor = Colors.Black,
+                OutlineSize = 2
+            };
+
+            _coordinatesLabel = new Label
+            {
+                Text = "X: 0, Y: 0",
+                LabelSettings = labelSettings,
+                Position = new Vector2(10, 690), // Bottom-left corner (assuming 720p height)
+                Modulate = Colors.White
+            };
+            AddChild(_coordinatesLabel);
         }
 
         private void CreateBuildButtons()
@@ -159,6 +186,9 @@ namespace Suri
             };
             _musicToggleButton.Pressed += OnMusicTogglePressed;
             _buildMenu.AddChild(_musicToggleButton);
+
+            // Create coordinates label in bottom-left corner
+            CreateCoordinatesLabel();
         }
 
         private void OnBuildButtonPressed(Button button)
@@ -249,6 +279,50 @@ namespace Suri
             OnPopulationChanged(_populationManager.CurrentPopulation);
             OnHappinessChanged(_populationManager.Happiness);
             OnGamePaused(_gameManager.IsPaused);
+        }
+
+        public override void _Process(double delta)
+        {
+            // Lazy-load camera controllers
+            if (_cameraController2D == null && HasNode("/root/Main/Camera2D"))
+            {
+                _cameraController2D = GetNode<CameraController>("/root/Main/Camera2D");
+            }
+            if (_cameraController3D == null && HasNode("/root/Main/SubViewportContainer/SubViewport/Camera3D"))
+            {
+                _cameraController3D = GetNode<CameraController3D>("/root/Main/SubViewportContainer/SubViewport/Camera3D");
+            }
+            if (_viewManager == null && HasNode("/root/Main/ViewManager"))
+            {
+                _viewManager = GetNode<ViewManager>("/root/Main/ViewManager");
+            }
+
+            // Update coordinates label
+            UpdateCoordinatesLabel();
+        }
+
+        private void UpdateCoordinatesLabel()
+        {
+            if (_coordinatesLabel == null) return;
+
+            int gridX = 0, gridY = 0;
+
+            if (_viewManager != null && _viewManager.Is3DView && _cameraController3D != null)
+            {
+                // 3D mode: use camera target position (X and Z)
+                var target3D = _cameraController3D.GetTargetPosition();
+                gridX = Mathf.RoundToInt(target3D.X);
+                gridY = Mathf.RoundToInt(target3D.Z);
+            }
+            else if (_cameraController2D != null && _gridManager != null)
+            {
+                // 2D mode: use camera position / tile size
+                var target2D = _cameraController2D.GetTargetPosition();
+                gridX = Mathf.RoundToInt(target2D.X / _gridManager.TileSize);
+                gridY = Mathf.RoundToInt(target2D.Y / _gridManager.TileSize);
+            }
+
+            _coordinatesLabel.Text = $"X: {gridX}, Y: {gridY}";
         }
     }
 }
