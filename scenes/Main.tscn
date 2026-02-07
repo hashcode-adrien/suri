@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3 uid="uid://bq3wqp8rwkjfd"]
+[gd_scene load_steps=15 format=3 uid="uid://bq3wqp8rwkjfd"]
 
 [ext_resource type="Script" path="res://scripts/GameManager.cs" id="1_e3wqp"]
 [ext_resource type="Script" path="res://scripts/GridManager.cs" id="2_g8hxy"]
@@ -10,6 +10,8 @@
 [ext_resource type="Script" path="res://scripts/ViewManager.cs" id="8_vm"]
 [ext_resource type="Script" path="res://scripts/GridManager3D.cs" id="9_gm3d"]
 [ext_resource type="Script" path="res://scripts/CameraController3D.cs" id="10_cc3d"]
+[ext_resource type="Script" path="res://scripts/LoadingScreen.cs" id="11_ls"]
+[ext_resource type="Script" path="res://scripts/MusicManager.cs" id="12_mm"]
 
 [sub_resource type="Environment" id="Environment_1"]
 background_mode = 1
@@ -97,3 +99,9 @@ environment = SubResource("Environment_1")
 
 [node name="HUD" type="CanvasLayer" parent="."]
 script = ExtResource("7_m4p2l")
+
+[node name="MusicManager" type="Node" parent="."]
+script = ExtResource("12_mm")
+
+[node name="LoadingScreen" type="CanvasLayer" parent="."]
+script = ExtResource("11_ls")
