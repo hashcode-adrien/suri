@@ -17,6 +17,9 @@ namespace Suri
 
         public override void _Ready()
         {
+            // Grid center in 2D: (GridWidth * TileSize / 2, GridHeight * TileSize / 2)
+            // = (40 * 32 / 2, 30 * 32 / 2) = (640, 480)
+            Position = new Vector2(640, 480);
             _targetPosition = Position;
             _targetZoom = Zoom;
         }
@@ -36,9 +39,9 @@ namespace Suri
             var moveDirection = Vector2.Zero;
 
             if (Input.IsActionPressed("move_up"))
-                moveDirection.Y -= 1;
-            if (Input.IsActionPressed("move_down"))
                 moveDirection.Y += 1;
+            if (Input.IsActionPressed("move_down"))
+                moveDirection.Y -= 1;
             if (Input.IsActionPressed("move_left"))
                 moveDirection.X -= 1;
             if (Input.IsActionPressed("move_right"))

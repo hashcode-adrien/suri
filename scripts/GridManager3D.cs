@@ -13,14 +13,37 @@ namespace Suri
 		private Dictionary<Vector2I, Node3D> _buildingMeshes = new Dictionary<Vector2I, Node3D>();
 		private Dictionary<Vector2I, Node3D> _cottages = new Dictionary<Vector2I, Node3D>();
 		private HashSet<Vector2I> _cottageCells = new HashSet<Vector2I>();
+		private HashSet<Vector2I> _permanentCottageCells = new HashSet<Vector2I>();
 		private Node3D _buildingsContainer;
 		private MeshInstance3D _groundPlane;
+		private PackedScene _cottageScene;
 
 		private const float CellSize = 1.0f;
 
 		public override void _Ready()
 		{
 			_gridManager = GetNode<GridManager>("/root/Main/GridManager");
+
+			// Try to get preloaded cottage from LoadingScreen
+			if (HasNode("/root/Main/LoadingScreen"))
+			{
+				var loadingScreen = GetNode<LoadingScreen>("/root/Main/LoadingScreen");
+				_cottageScene = loadingScreen.CottageScene;
+			}
+			
+			// Fallback: load directly if not preloaded
+			if (_cottageScene == null)
+			{
+				try
+				{
+					_cottageScene = GD.Load<PackedScene>("res://assets/Meshy_AI_Enchanted_Cottage_0206220057_texture.glb");
+					GD.Print("Loaded cottage model directly (fallback)");
+				}
+				catch (System.Exception e)
+				{
+					GD.PrintErr($"Failed to load cottage model: {e.Message}");
+				}
+			}
 
 			// Create containers
 			_buildingsContainer = new Node3D { Name = "BuildingsContainer" };
@@ -69,9 +92,91 @@ namespace Suri
 
 		private void OnGridChanged(int x, int y)
 		{
-			// When any cell changes, we need to check if it affects cottage formations
-			// For simplicity, do a full rebuild when near existing cottages or residential areas
-			RebuildAll();
+			var gridPos = new Vector2I(x, y);
+			var buildingType = _gridManager.GetBuildingAt(gridPos);
+
+			// Case 1: Building was removed
+			if (buildingType == BuildingType.None)
+			{
+				// Check if this cell is part of a permanent cottage
+				if (_permanentCottageCells.Contains(gridPos))
+				{
+					// Find the cottage top-left by checking all cottages
+					Vector2I cottageTopLeft = new Vector2I(-1, -1);
+					foreach (var kvp in _cottages)
+					{
+						// Check if gridPos is within this cottage's 3x3 area
+						if (gridPos.X >= kvp.Key.X && gridPos.X < kvp.Key.X + 3 &&
+							gridPos.Y >= kvp.Key.Y && gridPos.Y < kvp.Key.Y + 3)
+						{
+							cottageTopLeft = kvp.Key;
+							break;
+						}
+					}
+
+					if (cottageTopLeft.X >= 0)
+					{
+						// Remove the cottage
+						if (_cottages.ContainsKey(cottageTopLeft))
+						{
+							_cottages[cottageTopLeft].QueueFree();
+							_cottages.Remove(cottageTopLeft);
+						}
+
+						// Remove all 9 cells from permanent set
+						for (int dy = 0; dy < 3; dy++)
+						{
+							for (int dx = 0; dx < 3; dx++)
+							{
+								var cellPos = new Vector2I(cottageTopLeft.X + dx, cottageTopLeft.Y + dy);
+								_permanentCottageCells.Remove(cellPos);
+								_cottageCells.Remove(cellPos);
+							}
+						}
+
+						// Recreate individual meshes for remaining residential cells
+						for (int dy = 0; dy < 3; dy++)
+						{
+							for (int dx = 0; dx < 3; dx++)
+							{
+								var cellPos = new Vector2I(cottageTopLeft.X + dx, cottageTopLeft.Y + dy);
+								var cellType = _gridManager.GetBuildingAt(cellPos);
+								if (cellType == BuildingType.Residential)
+								{
+									CreateBuildingMesh(cellPos, cellType);
+								}
+							}
+						}
+
+						GD.Print($"Removed cottage at ({cottageTopLeft.X}, {cottageTopLeft.Y})");
+					}
+				}
+				else
+				{
+					// Regular building removal
+					if (_buildingMeshes.ContainsKey(gridPos))
+					{
+						_buildingMeshes[gridPos].QueueFree();
+						_buildingMeshes.Remove(gridPos);
+					}
+				}
+			}
+			// Case 2: Building was placed
+			else
+			{
+				// Skip if part of permanent cottage
+				if (_permanentCottageCells.Contains(gridPos))
+					return;
+
+				// Create individual mesh
+				CreateBuildingMesh(gridPos, buildingType);
+
+				// Only check for new cottage if this is residential
+				if (buildingType == BuildingType.Residential)
+				{
+					CheckForNewCottageAt(gridPos);
+				}
+			}
 		}
 
 		/// <summary>
@@ -92,6 +197,7 @@ namespace Suri
 			}
 			_cottages.Clear();
 			_cottageCells.Clear();
+			_permanentCottageCells.Clear();
 
 			// First pass: detect and place all 3x3 residential cottages
 			DetectAndPlaceCottages();
@@ -112,6 +218,78 @@ namespace Suri
 					if (buildingType != BuildingType.None)
 					{
 						CreateBuildingMesh(gridPos, buildingType);
+					}
+				}
+			}
+		}
+
+		/// <summary>
+		/// Checks if placing a residential at gridPos completes a new 3x3 cottage.
+		/// Only checks blocks that include gridPos and don't overlap with permanent cottages.
+		/// </summary>
+		private void CheckForNewCottageAt(Vector2I gridPos)
+		{
+			// Check all possible 3x3 blocks that include this cell
+			for (int startY = gridPos.Y - 2; startY <= gridPos.Y; startY++)
+			{
+				for (int startX = gridPos.X - 2; startX <= gridPos.X; startX++)
+				{
+					var topLeft = new Vector2I(startX, startY);
+
+					// Bounds check
+					if (startX < 0 || startY < 0 ||
+						startX + 3 > _gridManager.GridWidth ||
+						startY + 3 > _gridManager.GridHeight)
+						continue;
+
+					// Check if all 9 cells are Residential and not already permanent
+					bool allResidential = true;
+					bool anyPermanent = false;
+
+					for (int dy = 0; dy < 3 && allResidential; dy++)
+					{
+						for (int dx = 0; dx < 3 && allResidential; dx++)
+						{
+							var checkPos = new Vector2I(startX + dx, startY + dy);
+							
+							if (_permanentCottageCells.Contains(checkPos))
+							{
+								anyPermanent = true;
+								allResidential = false;
+							}
+							else if (_gridManager.GetBuildingAt(checkPos) != BuildingType.Residential)
+							{
+								allResidential = false;
+							}
+						}
+					}
+
+					if (allResidential && !anyPermanent)
+					{
+						// Found a new cottage! Remove individual meshes and create cottage
+						for (int dy = 0; dy < 3; dy++)
+						{
+							for (int dx = 0; dx < 3; dx++)
+							{
+								var cellPos = new Vector2I(startX + dx, startY + dy);
+								
+								// Remove individual mesh if present
+								if (_buildingMeshes.ContainsKey(cellPos))
+								{
+									_buildingMeshes[cellPos].QueueFree();
+									_buildingMeshes.Remove(cellPos);
+								}
+
+								// Mark as permanent
+								_permanentCottageCells.Add(cellPos);
+								_cottageCells.Add(cellPos);
+							}
+						}
+
+						// Place the cottage
+						PlaceCottage(topLeft);
+						GD.Print($"Created new cottage at ({topLeft.X}, {topLeft.Y})");
+						return; // Only create one cottage per placement
 					}
 				}
 			}
@@ -158,7 +336,9 @@ namespace Suri
 						{
 							for (int dx = 0; dx < 3; dx++)
 							{
-								_cottageCells.Add(new Vector2I(x + dx, y + dy));
+								var cellPos = new Vector2I(x + dx, y + dy);
+								_cottageCells.Add(cellPos);
+								_permanentCottageCells.Add(cellPos);
 							}
 						}
 
@@ -174,17 +354,15 @@ namespace Suri
 		/// </summary>
 		private void PlaceCottage(Vector2I topLeft)
 		{
+			if (_cottageScene == null)
+			{
+				GD.PrintErr("Cottage scene not loaded");
+				return;
+			}
+
 			try
 			{
-				// Load the cottage GLB file
-				var cottageScene = GD.Load<PackedScene>("res://assets/Meshy_AI_Enchanted_Cottage_0206220057_texture.glb");
-				if (cottageScene == null)
-				{
-					GD.PrintErr("Failed to load cottage GLB file");
-					return;
-				}
-
-				var cottage = cottageScene.Instantiate<Node3D>();
+				var cottage = _cottageScene.Instantiate<Node3D>();
 				if (cottage == null)
 				{
 					GD.PrintErr("Failed to instantiate cottage scene");

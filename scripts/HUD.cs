@@ -14,11 +14,13 @@ namespace Suri
         private Label _pauseLabel;
         private VBoxContainer _buildMenu;
         private Button _viewToggleButton;
+        private Button _musicToggleButton;
 
         private GameManager _gameManager;
         private EconomyManager _economyManager;
         private PopulationManager _populationManager;
         private ViewManager _viewManager;
+        private MusicManager _musicManager;
 
         public override void _Ready()
         {
@@ -143,11 +145,20 @@ namespace Suri
             // Add view toggle button
             _viewToggleButton = new Button
             {
-                Text = "View: 2D",
+                Text = "Switch to 2D",
                 CustomMinimumSize = new Vector2(160, 50)
             };
             _viewToggleButton.Pressed += OnViewTogglePressed;
             _buildMenu.AddChild(_viewToggleButton);
+
+            // Add music toggle button
+            _musicToggleButton = new Button
+            {
+                Text = "🔊 Music",
+                CustomMinimumSize = new Vector2(160, 50)
+            };
+            _musicToggleButton.Pressed += OnMusicTogglePressed;
+            _buildMenu.AddChild(_musicToggleButton);
         }
 
         private void OnBuildButtonPressed(Button button)
@@ -169,6 +180,21 @@ namespace Suri
             if (_viewManager != null)
             {
                 _viewManager.ToggleView();
+            }
+        }
+
+        private void OnMusicTogglePressed()
+        {
+            // Lazy load MusicManager
+            if (_musicManager == null && HasNode("/root/Main/MusicManager"))
+            {
+                _musicManager = GetNode<MusicManager>("/root/Main/MusicManager");
+            }
+
+            if (_musicManager != null)
+            {
+                _musicManager.ToggleMusic();
+                _musicToggleButton.Text = _musicManager.IsPlaying ? "🔊 Music" : "🔇 Music";
             }
         }
 
@@ -205,7 +231,7 @@ namespace Suri
 
         private void OnViewChanged(bool is3D)
         {
-            _viewToggleButton.Text = is3D ? "View: 3D" : "View: 2D";
+            _viewToggleButton.Text = is3D ? "Switch to 2D" : "Switch to 3D";
         }
 
         public override void _ExitTree()

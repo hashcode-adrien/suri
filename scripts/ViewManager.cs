@@ -17,7 +17,7 @@ namespace Suri
         private BuildingPlacer _buildingPlacer;
         private SubViewportContainer _viewportContainer3D;
 
-        private bool _is3DView = false;
+        private bool _is3DView = true;
         public bool Is3DView => _is3DView;
 
         public override void _Ready()
@@ -29,8 +29,8 @@ namespace Suri
             _buildingPlacer = GetNode<BuildingPlacer>("/root/Main/BuildingPlacer");
             _viewportContainer3D = GetNode<SubViewportContainer>("/root/Main/SubViewportContainer");
 
-            // Start in 2D view
-            SetView2D();
+            // Start in 3D view
+            SetView3D();
         }
 
         public void ToggleView()
