@@ -14,9 +14,12 @@ namespace Suri
 
         private Vector2 _targetPosition;
         private Vector2 _targetZoom;
+        private GridManager _gridManager;
 
         public override void _Ready()
         {
+            _gridManager = GetNode<GridManager>("/root/Main/GridManager");
+            
             // Grid center in 2D: (GridWidth * TileSize / 2, GridHeight * TileSize / 2)
             // = (40 * 32 / 2, 30 * 32 / 2) = (640, 480)
             Position = new Vector2(640, 480);
@@ -28,6 +31,9 @@ namespace Suri
         {
             HandlePanning(delta);
             HandleZoom(delta);
+            
+            // Apply boundary clamping after movement calculation
+            ApplyCameraClamping();
             
             // Smooth camera movement
             Position = Position.Lerp(_targetPosition, 10f * (float)delta);
@@ -52,6 +58,21 @@ namespace Suri
                 moveDirection = moveDirection.Normalized();
                 _targetPosition += moveDirection * PanSpeed * (float)delta / Zoom.X;
             }
+        }
+
+        private void ApplyCameraClamping()
+        {
+            // Clamp camera position to map bounds with 10-tile margin (320 pixels)
+            const float tileMargin = 320f; // 10 tiles * 32 pixels
+            float minX = -tileMargin;
+            float maxX = _gridManager.GridWidth * _gridManager.TileSize + tileMargin;
+            float minY = -tileMargin;
+            float maxY = _gridManager.GridHeight * _gridManager.TileSize + tileMargin;
+            
+            _targetPosition = new Vector2(
+                Mathf.Clamp(_targetPosition.X, minX, maxX),
+                Mathf.Clamp(_targetPosition.Y, minY, maxY)
+            );
         }
 
         private void HandleZoom(double delta)

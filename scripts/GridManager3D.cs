@@ -15,6 +15,7 @@ namespace Suri
 		private HashSet<Vector2I> _cottageCells = new HashSet<Vector2I>();
 		private HashSet<Vector2I> _permanentCottageCells = new HashSet<Vector2I>();
 		private Node3D _buildingsContainer;
+		private Node3D _gridLines3D;
 		private MeshInstance3D _groundPlane;
 		private PackedScene _cottageScene;
 
@@ -49,11 +50,18 @@ namespace Suri
 			_buildingsContainer = new Node3D { Name = "BuildingsContainer" };
 			AddChild(_buildingsContainer);
 
+			// Create 3D grid lines container
+			_gridLines3D = new Node3D { Name = "GridLines3D" };
+			AddChild(_gridLines3D);
+
 			// Subscribe to grid changes
 			_gridManager.GridChanged += OnGridChanged;
 
 			// Create ground plane
 			CreateGroundPlane();
+			
+			// Create 3D grid lines
+			CreateGridLines3D();
 
 			// Initial sync - build all existing buildings
 			SyncAllBuildings();
@@ -83,6 +91,66 @@ namespace Suri
 			};
 
 			AddChild(_groundPlane);
+		}
+
+		/// <summary>
+		/// Creates 3D grid lines on the ground plane to show tile boundaries.
+		/// Uses thin BoxMesh instances for each grid line with semi-transparent gray material.
+		/// </summary>
+		private void CreateGridLines3D()
+		{
+			var lineMaterial = new StandardMaterial3D
+			{
+				AlbedoColor = new Color(0.5f, 0.5f, 0.5f, 0.3f), // Gray with 30% opacity
+				Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+				CullMode = BaseMaterial3D.CullModeEnum.Disabled // Visible from both sides
+			};
+
+			// Create vertical grid lines (parallel to Z axis)
+			for (int x = 0; x <= _gridManager.GridWidth; x++)
+			{
+				var lineMesh = new BoxMesh
+				{
+					Size = new Vector3(0.02f, 0.02f, _gridManager.GridHeight * CellSize)
+				};
+
+				var lineInstance = new MeshInstance3D
+				{
+					Mesh = lineMesh,
+					MaterialOverride = lineMaterial,
+					Position = new Vector3(
+						x * CellSize,
+						0.01f, // Slightly above ground to avoid z-fighting
+						_gridManager.GridHeight * CellSize / 2.0f
+					)
+				};
+
+				_gridLines3D.AddChild(lineInstance);
+			}
+
+			// Create horizontal grid lines (parallel to X axis)
+			for (int z = 0; z <= _gridManager.GridHeight; z++)
+			{
+				var lineMesh = new BoxMesh
+				{
+					Size = new Vector3(_gridManager.GridWidth * CellSize, 0.02f, 0.02f)
+				};
+
+				var lineInstance = new MeshInstance3D
+				{
+					Mesh = lineMesh,
+					MaterialOverride = lineMaterial,
+					Position = new Vector3(
+						_gridManager.GridWidth * CellSize / 2.0f,
+						0.01f, // Slightly above ground to avoid z-fighting
+						z * CellSize
+					)
+				};
+
+				_gridLines3D.AddChild(lineInstance);
+			}
+
+			GD.Print($"Created {(_gridManager.GridWidth + 1) + (_gridManager.GridHeight + 1)} 3D grid lines");
 		}
 
 		private void SyncAllBuildings()

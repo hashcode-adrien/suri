@@ -14,12 +14,16 @@ namespace Suri
 
         private Vector3 _targetPosition;
         private float _targetSize;
+        private GridManager _gridManager;
+        private const float CellSize = 1.0f;
 
         public override void _Ready()
         {
+            _gridManager = GetNode<GridManager>("/root/Main/GridManager");
+            
             // Set up orthographic projection
             Projection = ProjectionType.Orthogonal;
-            Size = 20f; // Default orthographic size
+            Size = 18f; // Default orthographic size - adjusted for better framing
             _targetSize = Size;
             
             // CRITICAL: 45° isometric angle (classic city builder camera)
@@ -30,7 +34,8 @@ namespace Suri
             
             // Position camera above the center of the grid (40x30 grid, cell size 1.0)
             // Center the camera over the grid center (20, 15) in world XZ
-            Position = new Vector3(20, 30, 15);
+            // Y position lowered from 30 to 18 for better initial view
+            Position = new Vector3(20, 18, 15);
             
             _targetPosition = Position;
         }
@@ -38,6 +43,9 @@ namespace Suri
         public override void _Process(double delta)
         {
             HandlePanning(delta);
+            
+            // Apply boundary clamping after movement calculation
+            ApplyCameraClamping();
             
             // Smooth camera movement
             Position = Position.Lerp(_targetPosition, 10f * (float)delta);
@@ -72,6 +80,22 @@ namespace Suri
                 moveDirection = moveDirection.Normalized();
                 _targetPosition += moveDirection * PanSpeed * (float)delta;
             }
+        }
+
+        private void ApplyCameraClamping()
+        {
+            // Clamp camera position to map bounds with 10-cell margin (10 units)
+            const float cellMargin = 10f; // 10 cells * 1.0 cell size
+            float minX = -cellMargin;
+            float maxX = _gridManager.GridWidth * CellSize + cellMargin;
+            float minZ = -cellMargin;
+            float maxZ = _gridManager.GridHeight * CellSize + cellMargin;
+            
+            _targetPosition = new Vector3(
+                Mathf.Clamp(_targetPosition.X, minX, maxX),
+                _targetPosition.Y, // Don't clamp Y (height)
+                Mathf.Clamp(_targetPosition.Z, minZ, maxZ)
+            );
         }
 
         public override void _UnhandledInput(InputEvent @event)
