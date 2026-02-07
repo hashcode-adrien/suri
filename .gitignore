@@ -427,5 +427,10 @@ mono_crash.*.json
 
 # Godot-specific metadata and import files
 *.import
-*.md5
+*.
+
+# Dodot build directoru
+build/
+
+# MacOS specific files
 .DS_Store
