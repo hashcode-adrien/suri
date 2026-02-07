@@ -95,13 +95,13 @@ namespace Suri
 
 		/// <summary>
 		/// Creates 3D grid lines on the ground plane to show tile boundaries.
-		/// Uses thin BoxMesh instances for each grid line with semi-transparent gray material.
+		/// Uses thin BoxMesh instances for each grid line with semi-transparent dark gray material.
 		/// </summary>
 		private void CreateGridLines3D()
 		{
 			var lineMaterial = new StandardMaterial3D
 			{
-				AlbedoColor = new Color(0.5f, 0.5f, 0.5f, 0.3f), // Gray with 30% opacity
+				AlbedoColor = new Color(0.25f, 0.25f, 0.25f, 0.5f), // Dark gray with 50% opacity
 				Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
 				CullMode = BaseMaterial3D.CullModeEnum.Disabled // Visible from both sides
 			};

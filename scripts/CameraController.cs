@@ -45,9 +45,9 @@ namespace Suri
             var moveDirection = Vector2.Zero;
 
             if (Input.IsActionPressed("move_up"))
-                moveDirection.Y += 1;
+                moveDirection.Y -= 1; // Inverted: up arrow moves camera up (showing top of map)
             if (Input.IsActionPressed("move_down"))
-                moveDirection.Y -= 1;
+                moveDirection.Y += 1; // Inverted: down arrow moves camera down (showing bottom of map)
             if (Input.IsActionPressed("move_left"))
                 moveDirection.X -= 1;
             if (Input.IsActionPressed("move_right"))
@@ -62,12 +62,33 @@ namespace Suri
 
         private void ApplyCameraClamping()
         {
+            // Calculate visible area accounting for zoom and viewport
+            var viewport = GetViewport();
+            float viewportWidth = viewport.GetVisibleRect().Size.X;
+            float viewportHeight = viewport.GetVisibleRect().Size.Y;
+            
+            // Visible half-width and half-height (accounting for zoom)
+            float visibleHalfW = viewportWidth / (2f * Zoom.X);
+            float visibleHalfH = viewportHeight / (2f * Zoom.Y);
+            
             // Clamp camera position to map bounds with 10-tile margin (320 pixels)
             const float tileMargin = 320f; // 10 tiles * 32 pixels
-            float minX = -tileMargin;
-            float maxX = _gridManager.GridWidth * _gridManager.TileSize + tileMargin;
-            float minY = -tileMargin;
-            float maxY = _gridManager.GridHeight * _gridManager.TileSize + tileMargin;
+            float minX = -tileMargin + visibleHalfW;
+            float maxX = _gridManager.GridWidth * _gridManager.TileSize + tileMargin - visibleHalfW;
+            float minY = -tileMargin + visibleHalfH;
+            float maxY = _gridManager.GridHeight * _gridManager.TileSize + tileMargin - visibleHalfH;
+            
+            // If visible area is larger than clamped range, center the camera
+            if (minX > maxX)
+            {
+                float center = (_gridManager.GridWidth * _gridManager.TileSize) / 2f;
+                minX = maxX = center;
+            }
+            if (minY > maxY)
+            {
+                float center = (_gridManager.GridHeight * _gridManager.TileSize) / 2f;
+                minY = maxY = center;
+            }
             
             _targetPosition = new Vector2(
                 Mathf.Clamp(_targetPosition.X, minX, maxX),
@@ -105,6 +126,22 @@ namespace Suri
         {
             var newZoom = _targetZoom - Vector2.One * ZoomSpeed;
             _targetZoom = newZoom.Clamp(new Vector2(MinZoom, MinZoom), new Vector2(MaxZoom, MaxZoom));
+        }
+
+        /// <summary>
+        /// Gets the camera's target position (center of view) in world coordinates.
+        /// </summary>
+        public new Vector2 GetTargetPosition()
+        {
+            return _targetPosition;
+        }
+
+        /// <summary>
+        /// Sets the camera's target position (center of view) in world coordinates.
+        /// </summary>
+        public void SetTargetPosition(Vector2 position)
+        {
+            _targetPosition = position;
         }
     }
 }

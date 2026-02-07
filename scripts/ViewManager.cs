@@ -12,6 +12,8 @@ namespace Suri
 
         private Camera2D _camera2D;
         private Camera3D _camera3D;
+        private CameraController _cameraController2D;
+        private CameraController3D _cameraController3D;
         private GridManager _gridManager;
         private GridManager3D _gridManager3D;
         private BuildingPlacer _buildingPlacer;
@@ -24,6 +26,20 @@ namespace Suri
         {
             _camera2D = GetNode<Camera2D>("/root/Main/Camera2D");
             _camera3D = GetNode<Camera3D>("/root/Main/SubViewportContainer/SubViewport/Camera3D");
+            
+            // Verify camera types
+            _cameraController2D = _camera2D as CameraController;
+            _cameraController3D = _camera3D as CameraController3D;
+            
+            if (_cameraController2D == null)
+            {
+                GD.PrintErr("Camera2D is not of type CameraController - camera synchronization will not work");
+            }
+            if (_cameraController3D == null)
+            {
+                GD.PrintErr("Camera3D is not of type CameraController3D - camera synchronization will not work");
+            }
+            
             _gridManager = GetNode<GridManager>("/root/Main/GridManager");
             _gridManager3D = GetNode<GridManager3D>("/root/Main/SubViewportContainer/SubViewport/GridManager3D");
             _buildingPlacer = GetNode<BuildingPlacer>("/root/Main/BuildingPlacer");
@@ -45,6 +61,15 @@ namespace Suri
         {
             _is3DView = false;
             
+            // Sync camera position: 3D -> 2D
+            if (_cameraController3D != null && _cameraController2D != null)
+            {
+                var target3D = _cameraController3D.GetTargetPosition();
+                // Convert 3D world position (X, Z) to 2D pixel position (X * TileSize, Z * TileSize)
+                var target2D = new Vector2(target3D.X * _gridManager.TileSize, target3D.Z * _gridManager.TileSize);
+                _cameraController2D.SetTargetPosition(target2D);
+            }
+            
             // Enable 2D
             _camera2D.Enabled = true;
             _gridManager.SetTilesVisible(true);
@@ -64,6 +89,17 @@ namespace Suri
         public void SetView3D()
         {
             _is3DView = true;
+            
+            // Sync camera position: 2D -> 3D
+            if (_cameraController2D != null && _cameraController3D != null)
+            {
+                var target2D = _cameraController2D.GetTargetPosition();
+                // Convert 2D pixel position to 3D world position (X / TileSize, currentY, Y / TileSize)
+                var gridCenter = target2D / _gridManager.TileSize;
+                var currentTarget3D = _cameraController3D.GetTargetPosition();
+                var target3D = new Vector3(gridCenter.X, currentTarget3D.Y, gridCenter.Y);
+                _cameraController3D.SetTargetPosition(target3D);
+            }
             
             // Disable 2D rendering (but keep grid data)
             _camera2D.Enabled = false;

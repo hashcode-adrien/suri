@@ -18,12 +18,15 @@ namespace Suri
 		private Camera3D _camera3D;
 		private ColorRect _previewTile;
 		private ViewManager _viewManager;
+		private AudioStreamPlayer _audioPlayer;
+		private AudioStreamWav _placementSound;
 
 		private static readonly Vector2I InvalidGridPosition = new Vector2I(-1, -1);
 
 		// New drag-and-release state
 		private bool _isDraggingPlace = false;
 		private bool _isDraggingDemolish = false;
+		private bool _dragCancelled = false;
 		private List<Vector2I> _pendingPlacements = new List<Vector2I>();
 		private List<Vector2I> _pendingDemolitions = new List<Vector2I>();
 		private Dictionary<Vector2I, ColorRect> _previewTiles = new Dictionary<Vector2I, ColorRect>();
@@ -47,6 +50,9 @@ namespace Suri
 				MouseFilter = Control.MouseFilterEnum.Ignore
 			};
 			AddChild(_previewTile);
+
+			// Create audio player for placement sounds
+			CreateAudioPlayer();
 		}
 
 		private void InitializeDeferredReferences()
@@ -59,6 +65,61 @@ namespace Suri
 			if (HasNode("/root/Main/SubViewportContainer/SubViewport/Camera3D"))
 			{
 				_camera3D = GetNode<Camera3D>("/root/Main/SubViewportContainer/SubViewport/Camera3D");
+			}
+		}
+
+		private void CreateAudioPlayer()
+		{
+			// Pre-generate a simple click sound as AudioStreamWav
+			const int sampleRate = 44100;
+			const float duration = 0.05f; // 0.05 seconds
+			const float frequency = 440.0f; // A4 note
+			int sampleCount = (int)(sampleRate * duration);
+			
+			// Generate audio samples (4 bytes per sample frame: 2 bytes per sample × 2 channels)
+			byte[] data = new byte[sampleCount * 4];
+			for (int i = 0; i < sampleCount; i++)
+			{
+				float t = i / (float)sampleRate;
+				float fadeOut = 1.0f - (i / (float)sampleCount);
+				float sample = Mathf.Sin(2.0f * Mathf.Pi * frequency * t) * 0.3f * fadeOut;
+				
+				// Convert to 16-bit PCM
+				short sampleValue = (short)(sample * short.MaxValue);
+				int byteIndex = i * 4;
+				
+				// Left channel
+				data[byteIndex] = (byte)(sampleValue & 0xFF);
+				data[byteIndex + 1] = (byte)((sampleValue >> 8) & 0xFF);
+				// Right channel
+				data[byteIndex + 2] = (byte)(sampleValue & 0xFF);
+				data[byteIndex + 3] = (byte)((sampleValue >> 8) & 0xFF);
+			}
+			
+			// Create AudioStreamWav
+			_placementSound = new AudioStreamWav
+			{
+				Data = data,
+				Format = AudioStreamWav.FormatEnum.Format16Bits,
+				MixRate = sampleRate,
+				Stereo = true
+			};
+			
+			// Create audio player
+			_audioPlayer = new AudioStreamPlayer
+			{
+				Stream = _placementSound,
+				Bus = "Master"
+			};
+			
+			AddChild(_audioPlayer);
+		}
+
+		private void PlayPlacementSound()
+		{
+			if (_audioPlayer != null)
+			{
+				_audioPlayer.Play();
 			}
 		}
 
@@ -95,11 +156,12 @@ namespace Suri
 				{
 					// Start dragging
 					_isDraggingPlace = true;
+					_dragCancelled = false;
 					_pendingPlacements.Clear();
 					_pendingPlacements.Add(gridPos);
 					UpdatePendingPreview();
 				}
-				else if (_isDraggingPlace && validPos)
+				else if (_isDraggingPlace && validPos && !_dragCancelled)
 				{
 					// Continue dragging - add to pending if not already there
 					if (!_pendingPlacements.Contains(gridPos))
@@ -111,8 +173,11 @@ namespace Suri
 			}
 			else if (_isDraggingPlace)
 			{
-				// Released - place all pending tiles
-				ExecutePendingPlacements();
+				// Released - place all pending tiles (only if not cancelled)
+				if (!_dragCancelled)
+				{
+					ExecutePendingPlacements();
+				}
 				_isDraggingPlace = false;
 			}
 
@@ -123,11 +188,12 @@ namespace Suri
 				{
 					// Start dragging
 					_isDraggingDemolish = true;
+					_dragCancelled = false;
 					_pendingDemolitions.Clear();
 					_pendingDemolitions.Add(gridPos);
 					UpdatePendingPreview();
 				}
-				else if (_isDraggingDemolish && validPos)
+				else if (_isDraggingDemolish && validPos && !_dragCancelled)
 				{
 					// Continue dragging - add to pending if not already there
 					if (!_pendingDemolitions.Contains(gridPos))
@@ -139,8 +205,11 @@ namespace Suri
 			}
 			else if (_isDraggingDemolish)
 			{
-				// Released - demolish all pending tiles
-				ExecutePendingDemolitions();
+				// Released - demolish all pending tiles (only if not cancelled)
+				if (!_dragCancelled)
+				{
+					ExecutePendingDemolitions();
+				}
 				_isDraggingDemolish = false;
 			}
 		}
@@ -212,14 +281,14 @@ namespace Suri
 						MouseFilter = Control.MouseFilterEnum.Ignore
 					};
 
-					// Show red for invalid, building color for valid
+					// Show red for invalid, building color for valid at 65% opacity
 					if (canAfford && !isOccupied)
 					{
-						preview.Color = new Color(data.Color, 0.6f); // More saturated during drag
+						preview.Color = new Color(data.Color, 0.65f); // 65% opacity
 					}
 					else
 					{
-						preview.Color = new Color(Colors.Red, 0.6f);
+						preview.Color = new Color(Colors.Red, 0.65f); // 65% opacity
 					}
 
 					AddChild(preview);
@@ -239,10 +308,10 @@ namespace Suri
 						MouseFilter = Control.MouseFilterEnum.Ignore
 					};
 
-					// Show red X pattern or just red tint for demolition
+					// Show red X pattern or just red tint for demolition at 65% opacity
 					if (buildingType != BuildingType.None)
 					{
-						preview.Color = new Color(Colors.Red, 0.6f);
+						preview.Color = new Color(Colors.Red, 0.65f); // 65% opacity
 					}
 					else
 					{
@@ -300,6 +369,9 @@ namespace Suri
 			{
 				_economyManager.SpendMoney(data.Cost * placedCount);
 				GD.Print($"Placed {placedCount} {data.Name}(s), total cost: ${data.Cost * placedCount}");
+				
+				// Play placement sound
+				PlayPlacementSound();
 			}
 
 			ClearPendingPreview();
@@ -327,6 +399,9 @@ namespace Suri
 			{
 				_economyManager.AddMoney(totalRefund);
 				GD.Print($"Demolished {demolishedCount} building(s), total refund: ${totalRefund}");
+				
+				// Play placement sound (same sound for demolition)
+				PlayPlacementSound();
 			}
 
 			ClearPendingPreview();
@@ -337,6 +412,7 @@ namespace Suri
 			GD.Print("Drag operation cancelled");
 			_isDraggingPlace = false;
 			_isDraggingDemolish = false;
+			_dragCancelled = true;
 			ClearPendingPreview();
 		}
 
