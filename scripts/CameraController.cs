@@ -131,7 +131,7 @@ namespace Suri
         /// <summary>
         /// Gets the camera's target position (center of view) in world coordinates.
         /// </summary>
-        public Vector2 GetTargetPosition()
+        public new Vector2 GetTargetPosition()
         {
             return _targetPosition;
         }
