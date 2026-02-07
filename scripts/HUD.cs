@@ -316,17 +316,60 @@ namespace Suri
 
             if (_viewManager != null && _viewManager.Is3DView && _cameraController3D != null)
             {
-                // 3D mode: use camera target position (X and Z)
-                var target3D = _cameraController3D.GetTargetPosition();
-                gridX = Mathf.RoundToInt(target3D.X);
-                gridY = Mathf.RoundToInt(target3D.Z);
+                // 3D mode: raycast from top-left screen position to ground plane
+                if (_cameraController3D is Camera3D camera3D)
+                {
+                    // Screen position at top-left, below HUD (Y=60 to avoid HUD bar)
+                    var screenPos = new Vector2(0, 60);
+                    
+                    // Get ray from camera
+                    var from = camera3D.ProjectRayOrigin(screenPos);
+                    var dir = camera3D.ProjectRayNormal(screenPos);
+                    
+                    // Intersect with ground plane (Y = 0)
+                    if (Mathf.Abs(dir.Y) >= 0.0001f)
+                    {
+                        float t = -from.Y / dir.Y;
+                        if (t >= 0)
+                        {
+                            var intersection = from + dir * t;
+                            // Convert 3D world position to grid coordinates
+                            const float cellSize = 1.0f;
+                            gridX = Mathf.Max(0, Mathf.FloorToInt(intersection.X / cellSize));
+                            gridY = Mathf.Max(0, Mathf.FloorToInt(intersection.Z / cellSize));
+                        }
+                    }
+                }
             }
             else if (_cameraController2D != null && _gridManager != null)
             {
-                // 2D mode: use camera position / tile size
-                var target2D = _cameraController2D.GetTargetPosition();
-                gridX = Mathf.RoundToInt(target2D.X / _gridManager.TileSize);
-                gridY = Mathf.RoundToInt(target2D.Y / _gridManager.TileSize);
+                // 2D mode: calculate top-left visible tile
+                var viewport = GetViewport();
+                float viewportWidth = viewport.GetVisibleRect().Size.X;
+                float viewportHeight = viewport.GetVisibleRect().Size.Y;
+                
+                // Get camera zoom and target position
+                var camera2D = _cameraController2D as Camera2D;
+                if (camera2D != null)
+                {
+                    var targetPos = _cameraController2D.GetTargetPosition();
+                    var zoom = camera2D.Zoom;
+                    
+                    // Calculate visible half-extents (accounting for zoom)
+                    float halfViewW = viewportWidth / (2f * zoom.X);
+                    float halfViewH = viewportHeight / (2f * zoom.Y);
+                    
+                    // Top-left world position (offset by HUD height of 60 pixels)
+                    float hudOffset = 60f / zoom.Y;
+                    var topLeft = new Vector2(
+                        targetPos.X - halfViewW,
+                        targetPos.Y - halfViewH + hudOffset
+                    );
+                    
+                    // Convert to grid coordinates and clamp to 0 minimum
+                    gridX = Mathf.Max(0, Mathf.FloorToInt(topLeft.X / _gridManager.TileSize));
+                    gridY = Mathf.Max(0, Mathf.FloorToInt(topLeft.Y / _gridManager.TileSize));
+                }
             }
 
             _coordinatesLabel.Text = $"X: {gridX}, Y: {gridY}";
