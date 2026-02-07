@@ -143,7 +143,7 @@ namespace Suri
             // Add view toggle button
             _viewToggleButton = new Button
             {
-                Text = "View: 2D",
+                Text = "Switch to 2D",
                 CustomMinimumSize = new Vector2(160, 50)
             };
             _viewToggleButton.Pressed += OnViewTogglePressed;
@@ -205,7 +205,7 @@ namespace Suri
 
         private void OnViewChanged(bool is3D)
         {
-            _viewToggleButton.Text = is3D ? "View: 3D" : "View: 2D";
+            _viewToggleButton.Text = is3D ? "Switch to 2D" : "Switch to 3D";
         }
 
         public override void _ExitTree()

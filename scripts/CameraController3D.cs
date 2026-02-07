@@ -29,8 +29,8 @@ namespace Suri
             Rotation = new Vector3(Mathf.DegToRad(-45f), Mathf.DegToRad(-45f), 0);
             
             // Position camera above the center of the grid (40x30 grid, cell size 1.0)
-            // Adjusted to frame the city nicely with the 45° angle
-            Position = new Vector3(20, 25, 20);
+            // Center the camera over the grid center (20, 15) in world XZ
+            Position = new Vector3(20, 30, 15);
             
             _targetPosition = Position;
         }
@@ -59,9 +59,9 @@ namespace Suri
             right = right.Normalized();
 
             if (Input.IsActionPressed("move_up"))
-                moveDirection -= forward;
-            if (Input.IsActionPressed("move_down"))
                 moveDirection += forward;
+            if (Input.IsActionPressed("move_down"))
+                moveDirection -= forward;
             if (Input.IsActionPressed("move_left"))
                 moveDirection -= right;
             if (Input.IsActionPressed("move_right"))
