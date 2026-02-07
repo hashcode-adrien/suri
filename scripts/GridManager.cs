@@ -57,7 +57,7 @@ namespace Suri
                 var line = new Line2D();
                 line.AddPoint(new Vector2(x * TileSize, 0));
                 line.AddPoint(new Vector2(x * TileSize, GridHeight * TileSize));
-                line.DefaultColor = new Color(1, 1, 1, 0.2f);
+                line.DefaultColor = new Color(0.5f, 0.5f, 0.5f, 0.3f); // Gray with 0.3 alpha
                 line.Width = 1;
                 _gridLines.AddChild(line);
             }
@@ -68,7 +68,7 @@ namespace Suri
                 var line = new Line2D();
                 line.AddPoint(new Vector2(0, y * TileSize));
                 line.AddPoint(new Vector2(GridWidth * TileSize, y * TileSize));
-                line.DefaultColor = new Color(1, 1, 1, 0.2f);
+                line.DefaultColor = new Color(0.5f, 0.5f, 0.5f, 0.3f); // Gray with 0.3 alpha
                 line.Width = 1;
                 _gridLines.AddChild(line);
             }

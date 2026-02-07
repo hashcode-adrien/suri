@@ -1,4 +1,5 @@
 using Godot;
+using System.Collections.Generic;
 
 namespace Suri
 {
@@ -6,6 +7,7 @@ namespace Suri
 	/// Handles player input for placing and removing buildings.
 	/// Uses polling-based input in _Process to avoid event ordering issues
 	/// with other nodes using _UnhandledInput.
+	/// NEW: Uses "draw and release" mode - accumulate tiles during drag, place on release.
 	/// </summary>
 	public partial class BuildingPlacer : Node2D
 	{
@@ -19,12 +21,12 @@ namespace Suri
 
 		private static readonly Vector2I InvalidGridPosition = new Vector2I(-1, -1);
 
-		// State tracking for click-and-drag functionality
-		private bool _wasLeftPressed = false;
-		private bool _wasRightPressed = false;
-		private bool _isPlacing = false;
-		private bool _isDemolishing = false;
-		private Vector2I _lastPlacedGridPos = InvalidGridPosition;
+		// New drag-and-release state
+		private bool _isDraggingPlace = false;
+		private bool _isDraggingDemolish = false;
+		private List<Vector2I> _pendingPlacements = new List<Vector2I>();
+		private List<Vector2I> _pendingDemolitions = new List<Vector2I>();
+		private Dictionary<Vector2I, ColorRect> _previewTiles = new Dictionary<Vector2I, ColorRect>();
 
 		public override void _Ready()
 		{
@@ -36,7 +38,7 @@ namespace Suri
 			// ViewManager and Camera3D might not be ready immediately, get them when scene is ready
 			CallDeferred(nameof(InitializeDeferredReferences));
 
-			// Create preview tile
+			// Create preview tile for cursor
 			_previewTile = new ColorRect
 			{
 				Size = new Vector2(_gridManager.TileSize - 2, _gridManager.TileSize - 2),
@@ -62,6 +64,15 @@ namespace Suri
 
 		public override void _Process(double delta)
 		{
+			// Handle Escape key to cancel drag operations
+			if (Input.IsActionJustPressed("ui_cancel"))
+			{
+				if (_isDraggingPlace || _isDraggingDemolish)
+				{
+					CancelDragOperation();
+				}
+			}
+			
 			UpdatePreview();
 			HandleMouseInput();
 		}
@@ -72,70 +83,77 @@ namespace Suri
 			bool rightPressed = Input.IsMouseButtonPressed(MouseButton.Right);
 
 			// Check if mouse is over a GUI element (HUD buttons etc.)
-			// If so, don't process placement/demolition
 			bool mouseOverGui = IsMouseOverInteractiveGui();
 
 			var gridPos = GetGridPositionFromMouse();
 			bool validPos = _gridManager.IsValidPosition(gridPos);
 
-			// --- LEFT CLICK: Place buildings ---
-			// Detect press (transition from not pressed to pressed)
-			if (leftPressed && !_wasLeftPressed && !mouseOverGui)
+			// --- LEFT CLICK: Place buildings (drag and release mode) ---
+			if (leftPressed)
 			{
-				if (validPos)
+				if (!_isDraggingPlace && !mouseOverGui && validPos)
 				{
-					_isPlacing = true;
-					PlaceBuilding(gridPos);
-					_lastPlacedGridPos = gridPos;
+					// Start dragging
+					_isDraggingPlace = true;
+					_pendingPlacements.Clear();
+					_pendingPlacements.Add(gridPos);
+					UpdatePendingPreview();
+				}
+				else if (_isDraggingPlace && validPos)
+				{
+					// Continue dragging - add to pending if not already there
+					if (!_pendingPlacements.Contains(gridPos))
+					{
+						_pendingPlacements.Add(gridPos);
+						UpdatePendingPreview();
+					}
 				}
 			}
-			// While held down, keep placing on new tiles
-			else if (leftPressed && _isPlacing)
+			else if (_isDraggingPlace)
 			{
-				if (validPos && gridPos != _lastPlacedGridPos)
-				{
-					PlaceBuilding(gridPos);
-					_lastPlacedGridPos = gridPos;
-				}
-			}
-			// Released
-			if (!leftPressed && _wasLeftPressed)
-			{
-				_isPlacing = false;
-				_lastPlacedGridPos = InvalidGridPosition;
+				// Released - place all pending tiles
+				ExecutePendingPlacements();
+				_isDraggingPlace = false;
 			}
 
-			// --- RIGHT CLICK: Demolish buildings ---
-			if (rightPressed && !_wasRightPressed && !mouseOverGui)
+			// --- RIGHT CLICK: Demolish buildings (drag and release mode) ---
+			if (rightPressed)
 			{
-				if (validPos)
+				if (!_isDraggingDemolish && !mouseOverGui && validPos)
 				{
-					_isDemolishing = true;
-					DemolishBuilding(gridPos);
-					_lastPlacedGridPos = gridPos;
+					// Start dragging
+					_isDraggingDemolish = true;
+					_pendingDemolitions.Clear();
+					_pendingDemolitions.Add(gridPos);
+					UpdatePendingPreview();
+				}
+				else if (_isDraggingDemolish && validPos)
+				{
+					// Continue dragging - add to pending if not already there
+					if (!_pendingDemolitions.Contains(gridPos))
+					{
+						_pendingDemolitions.Add(gridPos);
+						UpdatePendingPreview();
+					}
 				}
 			}
-			else if (rightPressed && _isDemolishing)
+			else if (_isDraggingDemolish)
 			{
-				if (validPos && gridPos != _lastPlacedGridPos)
-				{
-					DemolishBuilding(gridPos);
-					_lastPlacedGridPos = gridPos;
-				}
+				// Released - demolish all pending tiles
+				ExecutePendingDemolitions();
+				_isDraggingDemolish = false;
 			}
-			if (!rightPressed && _wasRightPressed)
-			{
-				_isDemolishing = false;
-				_lastPlacedGridPos = InvalidGridPosition;
-			}
-
-			// Update previous frame state
-			_wasLeftPressed = leftPressed;
-			_wasRightPressed = rightPressed;
 		}
 
 		private void UpdatePreview()
 		{
+			// Only show single-tile preview when not dragging
+			if (_isDraggingPlace || _isDraggingDemolish)
+			{
+				_previewTile.Visible = false;
+				return;
+			}
+			
 			if (_gameManager.SelectedBuildingType == BuildingType.None)
 			{
 				_previewTile.Visible = false;
@@ -169,11 +187,179 @@ namespace Suri
 			_previewTile.Visible = true;
 		}
 
+		private void UpdatePendingPreview()
+		{
+			// Clear old preview tiles
+			foreach (var tile in _previewTiles.Values)
+			{
+				tile.QueueFree();
+			}
+			_previewTiles.Clear();
+
+			if (_isDraggingPlace)
+			{
+				var data = BuildingRegistry.GetBuildingData(_gameManager.SelectedBuildingType);
+				
+				foreach (var gridPos in _pendingPlacements)
+				{
+					var canAfford = _economyManager.CanAfford(data.Cost * _pendingPlacements.Count);
+					var isOccupied = _gridManager.GetBuildingAt(gridPos) != BuildingType.None;
+					
+					var preview = new ColorRect
+					{
+						Position = _gridManager.GridToWorld(gridPos),
+						Size = new Vector2(_gridManager.TileSize - 2, _gridManager.TileSize - 2),
+						MouseFilter = Control.MouseFilterEnum.Ignore
+					};
+
+					// Show red for invalid, building color for valid
+					if (canAfford && !isOccupied)
+					{
+						preview.Color = new Color(data.Color, 0.6f); // More saturated during drag
+					}
+					else
+					{
+						preview.Color = new Color(Colors.Red, 0.6f);
+					}
+
+					AddChild(preview);
+					_previewTiles[gridPos] = preview;
+				}
+			}
+			else if (_isDraggingDemolish)
+			{
+				foreach (var gridPos in _pendingDemolitions)
+				{
+					var buildingType = _gridManager.GetBuildingAt(gridPos);
+					
+					var preview = new ColorRect
+					{
+						Position = _gridManager.GridToWorld(gridPos),
+						Size = new Vector2(_gridManager.TileSize - 2, _gridManager.TileSize - 2),
+						MouseFilter = Control.MouseFilterEnum.Ignore
+					};
+
+					// Show red X pattern or just red tint for demolition
+					if (buildingType != BuildingType.None)
+					{
+						preview.Color = new Color(Colors.Red, 0.6f);
+					}
+					else
+					{
+						preview.Color = new Color(Colors.DarkRed, 0.4f); // Darker if nothing to demolish
+					}
+
+					AddChild(preview);
+					_previewTiles[gridPos] = preview;
+				}
+			}
+		}
+
+		private void ExecutePendingPlacements()
+		{
+			if (_gameManager.SelectedBuildingType == BuildingType.None)
+			{
+				ClearPendingPreview();
+				return;
+			}
+
+			var data = BuildingRegistry.GetBuildingData(_gameManager.SelectedBuildingType);
+			int totalCost = 0;
+			var validPlacements = new List<Vector2I>();
+
+			// First pass: validate all placements
+			foreach (var gridPos in _pendingPlacements)
+			{
+				if (_gridManager.GetBuildingAt(gridPos) == BuildingType.None)
+				{
+					totalCost += data.Cost;
+					validPlacements.Add(gridPos);
+				}
+			}
+
+			// Check if can afford all
+			if (!_economyManager.CanAfford(totalCost))
+			{
+				GD.Print($"Not enough money! Need ${totalCost}");
+				ClearPendingPreview();
+				return;
+			}
+
+			// Second pass: place all valid tiles
+			int placedCount = 0;
+			foreach (var gridPos in validPlacements)
+			{
+				if (_gridManager.PlaceBuilding(gridPos, _gameManager.SelectedBuildingType))
+				{
+					placedCount++;
+				}
+			}
+
+			// Deduct money for all placed buildings
+			if (placedCount > 0)
+			{
+				_economyManager.SpendMoney(data.Cost * placedCount);
+				GD.Print($"Placed {placedCount} {data.Name}(s), total cost: ${data.Cost * placedCount}");
+			}
+
+			ClearPendingPreview();
+		}
+
+		private void ExecutePendingDemolitions()
+		{
+			int totalRefund = 0;
+			int demolishedCount = 0;
+
+			foreach (var gridPos in _pendingDemolitions)
+			{
+				var buildingType = _gridManager.GetBuildingAt(gridPos);
+				if (buildingType == BuildingType.None) continue;
+
+				if (_gridManager.RemoveBuilding(gridPos))
+				{
+					var data = BuildingRegistry.GetBuildingData(buildingType);
+					totalRefund += data.Cost / 2;
+					demolishedCount++;
+				}
+			}
+
+			if (demolishedCount > 0)
+			{
+				_economyManager.AddMoney(totalRefund);
+				GD.Print($"Demolished {demolishedCount} building(s), total refund: ${totalRefund}");
+			}
+
+			ClearPendingPreview();
+		}
+
+		private void CancelDragOperation()
+		{
+			GD.Print("Drag operation cancelled");
+			_isDraggingPlace = false;
+			_isDraggingDemolish = false;
+			ClearPendingPreview();
+		}
+
+		private void ClearPendingPreview()
+		{
+			_pendingPlacements.Clear();
+			_pendingDemolitions.Clear();
+			
+			foreach (var tile in _previewTiles.Values)
+			{
+				tile.QueueFree();
+			}
+			_previewTiles.Clear();
+		}
+
 		private bool IsMouseOverInteractiveGui()
 		{
 			var hoveredControl = GetViewport().GuiGetHoveredControl();
 			if (hoveredControl == null) return false;
 			if (hoveredControl == _previewTile) return false;
+			// Ignore our own preview tiles
+			if (_previewTiles.ContainsValue(hoveredControl as ColorRect)) return false;
+			
 			// If hovering over any control that's part of the HUD CanvasLayer, it's GUI
 			Node parent = hoveredControl;
 			while (parent != null)
@@ -183,40 +369,6 @@ namespace Suri
 				parent = parent.GetParent();
 			}
 			return false;
-		}
-
-		private void PlaceBuilding(Vector2I gridPos)
-		{
-			if (_gameManager.SelectedBuildingType == BuildingType.None) return;
-
-			var data = BuildingRegistry.GetBuildingData(_gameManager.SelectedBuildingType);
-			
-			if (!_economyManager.CanAfford(data.Cost))
-			{
-				GD.Print("Not enough money!");
-				return;
-			}
-
-			if (_gridManager.PlaceBuilding(gridPos, _gameManager.SelectedBuildingType))
-			{
-				_economyManager.SpendMoney(data.Cost);
-				GD.Print($"Placed {data.Name} at {gridPos}");
-			}
-		}
-
-		private void DemolishBuilding(Vector2I gridPos)
-		{
-			var buildingType = _gridManager.GetBuildingAt(gridPos);
-			if (buildingType == BuildingType.None) return;
-
-			if (_gridManager.RemoveBuilding(gridPos))
-			{
-				// Get small refund (50% of original cost)
-				var data = BuildingRegistry.GetBuildingData(buildingType);
-				int refund = data.Cost / 2;
-				_economyManager.AddMoney(refund);
-				GD.Print($"Demolished {data.Name} at {gridPos}, refund: ${refund}");
-			}
 		}
 
 		/// <summary>
