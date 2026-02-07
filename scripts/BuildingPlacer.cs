@@ -19,6 +19,7 @@ namespace Suri
 		private ColorRect _previewTile;
 		private ViewManager _viewManager;
 		private AudioStreamPlayer _audioPlayer;
+		private AudioStreamWav _placementSound;
 
 		private static readonly Vector2I InvalidGridPosition = new Vector2I(-1, -1);
 
@@ -69,46 +70,56 @@ namespace Suri
 
 		private void CreateAudioPlayer()
 		{
-			// Create a simple procedural "click" sound
-			_audioPlayer = new AudioStreamPlayer
+			// Pre-generate a simple click sound as AudioStreamWav
+			const int sampleRate = 44100;
+			const float duration = 0.05f; // 0.05 seconds
+			const float frequency = 440.0f; // A4 note
+			int sampleCount = (int)(sampleRate * duration);
+			
+			// Generate audio samples
+			byte[] data = new byte[sampleCount * 4]; // 2 bytes per sample * 2 channels (stereo)
+			for (int i = 0; i < sampleCount; i++)
 			{
-				Bus = "Master"
+				float t = i / (float)sampleRate;
+				float fadeOut = 1.0f - (i / (float)sampleCount);
+				float sample = Mathf.Sin(2.0f * Mathf.Pi * frequency * t) * 0.3f * fadeOut;
+				
+				// Convert to 16-bit PCM
+				short sampleValue = (short)(sample * short.MaxValue);
+				int byteIndex = i * 4;
+				
+				// Left channel
+				data[byteIndex] = (byte)(sampleValue & 0xFF);
+				data[byteIndex + 1] = (byte)((sampleValue >> 8) & 0xFF);
+				// Right channel
+				data[byteIndex + 2] = (byte)(sampleValue & 0xFF);
+				data[byteIndex + 3] = (byte)((sampleValue >> 8) & 0xFF);
+			}
+			
+			// Create AudioStreamWav
+			_placementSound = new AudioStreamWav
+			{
+				Data = data,
+				Format = AudioStreamWav.FormatEnum.Format16Bits,
+				MixRate = sampleRate,
+				Stereo = true
 			};
 			
-			// Create a simple sine wave click sound (~0.1 seconds, 440Hz)
-			var audioStream = new AudioStreamGenerator
+			// Create audio player
+			_audioPlayer = new AudioStreamPlayer
 			{
-				MixRate = 44100,
-				BufferLength = 0.1f
+				Stream = _placementSound,
+				Bus = "Master"
 			};
-			_audioPlayer.Stream = audioStream;
 			
 			AddChild(_audioPlayer);
 		}
 
 		private void PlayPlacementSound()
 		{
-			if (_audioPlayer == null) return;
-
-			// Generate a simple click sound procedurally
-			var generator = _audioPlayer.Stream as AudioStreamGenerator;
-			if (generator == null) return;
-
-			_audioPlayer.Play();
-			
-			// Fill audio buffer with a short sine wave burst
-			var playback = _audioPlayer.GetStreamPlayback() as AudioStreamGeneratorPlayback;
-			if (playback == null) return;
-
-			int framesToGenerate = (int)(generator.MixRate * 0.05); // 0.05 seconds
-			float frequency = 440.0f; // A4 note
-			
-			for (int i = 0; i < framesToGenerate; i++)
+			if (_audioPlayer != null)
 			{
-				float t = i / (float)generator.MixRate;
-				float fadeOut = 1.0f - (i / (float)framesToGenerate); // Quick fade out
-				float sample = Mathf.Sin(2.0f * Mathf.Pi * frequency * t) * 0.3f * fadeOut;
-				playback.PushFrame(new Vector2(sample, sample));
+				_audioPlayer.Play();
 			}
 		}
 

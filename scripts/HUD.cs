@@ -112,11 +112,14 @@ namespace Suri
                 OutlineSize = 2
             };
 
+            // Position at bottom-left, calculated dynamically based on viewport
+            var viewportHeight = GetViewport().GetVisibleRect().Size.Y;
+            
             _coordinatesLabel = new Label
             {
                 Text = "X: 0, Y: 0",
                 LabelSettings = labelSettings,
-                Position = new Vector2(10, 690), // Bottom-left corner (assuming 720p height)
+                Position = new Vector2(10, viewportHeight - 30), // 30px from bottom
                 Modulate = Colors.White
             };
             AddChild(_coordinatesLabel);
